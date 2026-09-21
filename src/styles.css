@@ -1,0 +1,102 @@
+/* Layout shell only. Leaflet's own stylesheet handles the map internals. */
+:root {
+  --ink: #1c211f;
+  --ink-2: #5a615d;
+  --paper: #f3f4f0;
+  --surface: #ffffff;
+  --rule: #d5d9d1;
+  --accent: #0b5fa5;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e6e9e4;
+    --ink-2: #a4aba5;
+    --paper: #171a1c;
+    --surface: #1f2325;
+    --rule: #34393c;
+    --accent: #64ade8;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex;
+  flex-direction: column;
+  font: 14px/1.45 var(--font);
+  color: var(--ink);
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+}
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand-name { font-weight: 600; letter-spacing: -0.01em; }
+.brand-tagline { color: var(--ink-2); font-size: 12.5px; }
+.toolbar-right { display: flex; align-items: center; gap: 14px; }
+.level-name { color: var(--ink-2); font-size: 12.5px; }
+.lang { display: flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 12.5px; }
+
+button, select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+button:hover, select:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.icon-btn { padding: 0 8px; font-size: 18px; line-height: 1.2; }
+
+.workspace { position: relative; flex: 1 1 auto; min-height: 0; }
+.plan { position: absolute; inset: 0; background: var(--paper); }
+
+/* Detail panel slides over the right edge of the map. */
+.panel {
+  position: absolute;
+  top: 12px; right: 12px; bottom: 12px;
+  width: min(360px, 40vw);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;              /* above Leaflet's panes (max 700) */
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.panel-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.panel-body { margin: 0; padding: 14px 16px; overflow: auto; }
+.panel-body dt { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); margin-top: 12px; }
+.panel-body dt:first-child { margin-top: 0; }
+.panel-body dd { margin: 3px 0 0; }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+
+.status {
+  padding: 5px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  background: var(--surface);
+  border-top: 1px solid var(--rule);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Leaflet defaults tuned for a drawing rather than a world map */
+.leaflet-container { background: var(--paper); font: inherit; }

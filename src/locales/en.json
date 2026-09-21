@@ -1,0 +1,18 @@
+{
+  "app.title": "PlanFloorViewer",
+  "app.tagline": "What is inside the walls",
+  "level.demo": "Demo plan",
+  "toolbar.language": "Language",
+  "toolbar.zoomFit": "Fit plan",
+  "panel.title": "Pin",
+  "panel.label": "Label",
+  "panel.notes": "Notes",
+  "panel.position": "Position on plan",
+  "panel.positionValue": "x {x} px · y {y} px",
+  "panel.created": "Recorded",
+  "panel.close": "Close",
+  "status.ready": "Scroll to zoom · drag to pan · click a pin to open it",
+  "status.clicked": "Clicked at x {x} px, y {y} px",
+  "demo.pin.label": "Cold water riser",
+  "demo.pin.notes": "Copper 22 mm, runs vertically inside the kitchen wall. Centre is 38 cm from the door frame, joint at 112 cm above finished floor."
+}

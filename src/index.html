@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PlanFloorViewer</title>
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="brand">
+        <span class="brand-name" data-i18n="app.title"></span>
+        <span class="brand-tagline" data-i18n="app.tagline"></span>
+      </div>
+      <div class="toolbar-right">
+        <span class="level-name" id="level-name"></span>
+        <button id="btn-fit" type="button" data-i18n="toolbar.zoomFit"></button>
+        <label class="lang">
+          <span data-i18n="toolbar.language"></span>
+          <select id="lang-select" aria-label="Language"></select>
+        </label>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <div id="plan" class="plan"></div>
+
+      <aside id="panel" class="panel" hidden>
+        <div class="panel-head">
+          <h2 data-i18n="panel.title"></h2>
+          <button id="panel-close" type="button" class="icon-btn" data-i18n-attr="title:panel.close,aria-label:panel.close">×</button>
+        </div>
+        <dl class="panel-body">
+          <dt data-i18n="panel.label"></dt>
+          <dd id="pin-label"></dd>
+          <dt data-i18n="panel.notes"></dt>
+          <dd id="pin-notes"></dd>
+          <dt data-i18n="panel.position"></dt>
+          <dd id="pin-position" class="mono"></dd>
+          <dt data-i18n="panel.created"></dt>
+          <dd id="pin-created" class="mono"></dd>
+        </dl>
+      </aside>
+    </main>
+
+    <footer class="status" id="status"></footer>
+
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
