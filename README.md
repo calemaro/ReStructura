@@ -7,8 +7,9 @@ Load a floor plan, click the exact spot where something runs, and attach photos,
 measurements to that point. When the wall is closed and you need to drill two years later,
 the record is still there.
 
-> **Status: setup phase.** The environment has been audited and the architecture chosen.
-> No application code exists yet. Progress is tracked on the build sheet (see below).
+> **Status: architecture skeleton working.** Plan loads with zoom/pan, pins are created and
+> deleted from the UI and persist in SQLite across restarts, interface in English and Italian.
+> Feature work (pin editing, photos, categories, multiple levels) is tracked in the issues.
 
 ---
 
@@ -30,7 +31,7 @@ and a folder of photos on your own disk.
 | Layer | Choice | Why |
 | --- | --- | --- |
 | App shell | **Tauri v2** (Rust) | Native window, small binaries, builds for Linux/macOS/Windows. Not Electron. |
-| Frontend | Plain HTML / CSS / JS | No framework until the core interaction is proven. |
+| Frontend | Plain HTML / CSS / JS, served by Vite in development | No framework until the core interaction is proven. Vite gives instant reload while developing and produces the static files embedded in the release binary. |
 | Plan view | **Leaflet** with `L.CRS.Simple` | Treats a plain image as the map — pixel coordinates instead of latitude/longitude. Zoom, pan and clickable markers come for free. |
 | Database | **SQLite** via `rusqlite` (`bundled`) | One file, no server. `bundled` compiles SQLite into the binary, so the app carries its own engine. |
 | Photos | Files on disk, paths in the DB | Blobs in SQLite would bloat the database and make backup harder. |
@@ -39,13 +40,15 @@ and a folder of photos on your own disk.
 ### Data model
 
 ```
-floors (id, name, image_path, sort_order)
-pins   (id, floor_id, x, y, label, notes, created_at)
-photos (id, pin_id, file_path, caption, created_at)
+levels   (id, name, image_path, sort_order)
+pins     (id, level_id, x, y, label, notes, created_at)
+photos   (id, pin_id, file_path, caption, created_at)
+settings (key, value)
 ```
 
-`pins.x` / `pins.y` are **pixel coordinates on the floor plan image**, which is what
-Leaflet's `L.CRS.Simple` works in natively.
+A *level* is any plan of the same home — a floor, a mezzanine, a basement.
+`pins.x` / `pins.y` are **pixel coordinates on the plan image, origin top-left, y downwards**,
+which is what an image editor reports and what `L.CRS.Simple` maps onto directly.
 
 ### Where your data lives
 
@@ -89,9 +92,19 @@ SQLite from source into the binary.
 All commands below run **from the repository root**.
 
 ```bash
-npm install          # first time only
-npm run tauri dev    # dev build with hot reload
-npm run tauri build  # production bundle
+npm install     # first time only — also copies Leaflet into src/public/vendor
+npm run dev     # development: Vite serves the frontend, Tauri opens the window, both reload on save
+npm run build   # release: bundles the frontend into dist/ and builds native installers
+```
+
+Project layout:
+
+```
+src/                  frontend — index.html, main.js, i18n.js, styles.css
+src/public/           static files served as-is: locales/, assets/ (plan images), vendor/ (Leaflet)
+src-tauri/src/lib.rs  Tauri commands (the JavaScript ↔ Rust bridge)
+src-tauri/src/db.rs   SQLite schema and queries
+scripts/              vendor.mjs (copies Leaflet), make_demo_plan.py (draws the sample plan)
 ```
 
 The first `tauri dev` compiles several hundred Rust crates and takes roughly 3–10 minutes.
@@ -107,19 +120,26 @@ Every build after that is seconds.
 - `main` always builds. Feature work happens on `feat/…`, `fix/…`, `chore/…` branches.
 - [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `chore:`,
   `docs:`, `refactor:`.
-- Pin categories follow the **APWA uniform utility colour code**, so anyone in the trades
-  reads the plan without a legend:
+- Every user-visible string comes from `src/public/locales/<lang>.json` — nothing is hardcoded.
+  Adding a language is one file plus one entry in `SUPPORTED` in `src/i18n.js`.
+- Pins store a semantic **category** (gas, cold water, hot water/heating, electric power,
+  data/TV, alarm, intercom, multimedia, drain, other). Marker colours come from a selectable
+  **colour scheme** in Settings, so anyone in the trades reads the plan without a legend:
 
-  | Colour | Meaning |
-  | --- | --- |
-  | Red | Electric power, cables, conduit |
-  | Yellow | Gas, oil, steam, petroleum |
-  | Orange | Communications, alarm, signal |
-  | Blue | Potable water |
-  | Purple | Reclaimed water, irrigation |
-  | Green | Sewer and drain lines |
-  | Pink | Temporary survey markings |
-  | White | Proposed excavation |
+  | Category | Italian / European (default) | APWA (US) |
+  | --- | --- | --- |
+  | Gas | Yellow (mandatory, UNI 5634) | Yellow |
+  | Electric power | Black / grey (CEI 64-100/2) | Red |
+  | Data, telephone, TV | Green | Orange |
+  | Alarm / security | Brown | Orange |
+  | Intercom | Light blue | Orange |
+  | Multimedia / home automation | Violet | Orange |
+  | Cold water | Blue | Blue |
+  | Hot water / heating | Red | — |
+  | Drain / sewer | — | Green |
+
+  The two conventions disagree (green is *data* in Italy and *sewer* under APWA), which is
+  why the category, never the colour, is what gets stored.
 
 ---
 
@@ -140,11 +160,11 @@ Confirmed working on the primary development machine:
 
 ## Roadmap
 
-**Skeleton (in progress)** — image loads, zoom/pan works, one clickable pin, one verified
-round-trip from JavaScript to Rust to SQLite and back.
+**Skeleton (done)** — plan loads with zoom/pan, pins are added and deleted from the UI and
+persist in SQLite, interface in English and Italian.
 
-**MVP** — click to drop pins, pin editor with notes and measurements, photo attachment and
-gallery, utility categories, multiple floors, edit/delete.
+**MVP** — pin editor with notes and measurements, photo attachment and gallery, categories
+with selectable colour scheme, multiple levels, context menu, plan import from the UI.
 
 **Later** — importing architects' drawings (PDF raster, SVG layers, DXF/DWG), scale
 calibration so distances read in centimetres, backup/restore bundles, search, printable

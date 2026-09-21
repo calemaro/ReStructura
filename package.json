@@ -1,0 +1,23 @@
+{
+  "name": "planfloorviewer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri",
+    "dev:web": "vite",
+    "build:web": "vite build",
+    "vendor": "node scripts/vendor.mjs",
+    "postinstall": "node scripts/vendor.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
+    "vite": "^8.3.0"
+  },
+  "description": "Pin photos, notes and measurements to a floor plan to document what is inside your walls.",
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  }
+}
