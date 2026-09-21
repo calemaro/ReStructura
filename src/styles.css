@@ -87,7 +87,16 @@ button.danger:hover { background: rgba(179, 38, 30, 0.08); }
   padding: 10px 12px 10px 16px;
   border-bottom: 1px solid var(--rule);
 }
-.panel-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.panel-head h2 { margin: 0; font-size: 15px; font-weight: 600; flex: 1 1 auto; }
+.save-state { font-size: 11.5px; color: var(--ink-2); margin-right: 8px; min-width: 4em; text-align: right; }
+.save-state.ok { color: #2c7a52; }
+.save-state.err { color: #b3261e; }
+.panel input[type="text"], .panel textarea {
+  width: 100%; font: inherit; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 4px;
+  padding: 6px 8px; resize: vertical;
+}
+.panel input[type="text"]:focus, .panel textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
 .panel-body { margin: 0; padding: 14px 16px; overflow: auto; flex: 1 1 auto; }
 .panel-foot { padding: 10px 16px; border-top: 1px solid var(--rule); display: flex; justify-content: flex-end; }
 .panel-body dt { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); margin-top: 12px; }

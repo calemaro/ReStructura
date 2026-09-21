@@ -15,12 +15,16 @@
   "toolbar.addPin": "Add pin",
   "toolbar.addPinActive": "Click the plan to place the pin…",
   "toolbar.cancel": "Cancel",
-  "pin.newLabel": "New pin",
   "panel.delete": "Delete pin",
   "panel.deleteConfirm": "Delete this pin? This cannot be undone.",
   "status.saved": "Pin #{id} saved at x {x} px, y {y} px",
   "status.deleted": "Pin #{id} deleted",
   "status.loaded": "{n} pin(s) loaded · database: {path}",
   "status.noTauri": "Not running inside the desktop app — database unavailable",
-  "error.db": "Database error: {msg}"
+  "error.db": "Database error: {msg}",
+  "panel.labelPlaceholder": "What is here? e.g. Cold water riser",
+  "panel.notesPlaceholder": "Material, size, distances from reference points, anything you would want to know before drilling…",
+  "panel.saving": "Saving…",
+  "panel.saved": "Saved",
+  "panel.saveFailed": "Not saved — {msg}"
 }

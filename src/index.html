@@ -30,13 +30,14 @@
       <aside id="panel" class="panel" hidden>
         <div class="panel-head">
           <h2 data-i18n="panel.title"></h2>
+          <span id="pin-save-state" class="save-state" aria-live="polite"></span>
           <button id="panel-close" type="button" class="icon-btn" data-i18n-attr="title:panel.close,aria-label:panel.close">×</button>
         </div>
         <dl class="panel-body">
-          <dt data-i18n="panel.label"></dt>
-          <dd id="pin-label"></dd>
-          <dt data-i18n="panel.notes"></dt>
-          <dd id="pin-notes"></dd>
+          <dt><label for="pin-label" data-i18n="panel.label"></label></dt>
+          <dd><input id="pin-label" type="text" autocomplete="off" maxlength="120" data-i18n-attr="placeholder:panel.labelPlaceholder"></dd>
+          <dt><label for="pin-notes" data-i18n="panel.notes"></label></dt>
+          <dd><textarea id="pin-notes" rows="7" data-i18n-attr="placeholder:panel.notesPlaceholder"></textarea></dd>
           <dt data-i18n="panel.position"></dt>
           <dd id="pin-position" class="mono"></dd>
           <dt data-i18n="panel.created"></dt>

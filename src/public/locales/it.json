@@ -15,12 +15,16 @@
   "toolbar.addPin": "Aggiungi punto",
   "toolbar.addPinActive": "Clicca sulla planimetria per posizionare il punto…",
   "toolbar.cancel": "Annulla",
-  "pin.newLabel": "Nuovo punto",
   "panel.delete": "Elimina punto",
   "panel.deleteConfirm": "Eliminare questo punto? L'operazione non è reversibile.",
   "status.saved": "Punto #{id} salvato a x {x} px, y {y} px",
   "status.deleted": "Punto #{id} eliminato",
   "status.loaded": "{n} punto/i caricati · database: {path}",
   "status.noTauri": "Non in esecuzione nell'app desktop — database non disponibile",
-  "error.db": "Errore database: {msg}"
+  "error.db": "Errore database: {msg}",
+  "panel.labelPlaceholder": "Cosa c'è qui? es. Montante acqua fredda",
+  "panel.notesPlaceholder": "Materiale, dimensioni, distanze dai punti di riferimento, tutto ciò che vorresti sapere prima di forare…",
+  "panel.saving": "Salvataggio…",
+  "panel.saved": "Salvato",
+  "panel.saveFailed": "Non salvato — {msg}"
 }

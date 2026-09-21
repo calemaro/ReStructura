@@ -15,6 +15,7 @@
 //   invoke("list_levels")                       -> [{ id, name, imagePath, sortOrder }]
 //   invoke("list_pins",  { levelId })           -> [{ id, levelId, x, y, label, notes, createdAt }]
 //   invoke("add_pin",    { levelId, x, y, label, notes }) -> the new pin
+//   invoke("update_pin", { id, label, notes })  -> the updated pin
 //   invoke("delete_pin", { id })                -> true if a row was removed
 
 import { t, setLanguage, detectLanguage, currentLanguage, SUPPORTED } from "./i18n.js";
@@ -49,19 +50,69 @@ const setStatus = (msg) => { statusEl.textContent = msg; };
 const showError = (err) => { console.error(err); setStatus(t("error.db", { msg: err?.message ?? String(err) })); };
 
 // ---- pin panel -----------------------------------------------------------------------
-function showPin(id) {
+const labelInput = $("#pin-label");
+const notesInput = $("#pin-notes");
+const saveStateEl = $("#pin-save-state");
+
+function showPin(id, { focus = false } = {}) {
   const entry = pins.get(id);
   if (!entry) return;
   const { pin } = entry;
   selectedId = id;
-  $("#pin-label").textContent = pin.label || t("pin.newLabel");
-  $("#pin-notes").textContent = pin.notes;
+  labelInput.value = pin.label;
+  notesInput.value = pin.notes;
   $("#pin-position").textContent = t("panel.positionValue", { x: Math.round(pin.x), y: Math.round(pin.y) });
   $("#pin-created").textContent = new Date(pin.createdAt).toLocaleString(currentLanguage());
+  setSaveState("");
   panelEl.hidden = false;
+  if (focus) { labelInput.focus(); labelInput.select(); }
 }
-function hidePanel() { panelEl.hidden = true; selectedId = null; }
+function hidePanel() { flushSave(); panelEl.hidden = true; selectedId = null; }
 $("#panel-close").addEventListener("click", hidePanel);
+
+function setSaveState(kind, msg) {
+  saveStateEl.textContent = msg ?? "";
+  saveStateEl.className = "save-state" + (kind ? " " + kind : "");
+}
+
+// Autosave: a short pause after typing, or leaving the field, writes to SQLite.
+// Only the pin that was open when typing started is written — switching pins
+// mid-edit flushes the previous one first (see hidePanel / marker click).
+let saveTimer = null;
+let dirtyId = null;
+
+function scheduleSave() {
+  if (selectedId == null) return;
+  dirtyId = selectedId;
+  setSaveState("", t("panel.saving"));
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 600);
+}
+async function flushSave() {
+  clearTimeout(saveTimer);
+  if (dirtyId == null) return;
+  const id = dirtyId;
+  dirtyId = null;
+  const entry = pins.get(id);
+  if (!entry) return;
+  const label = labelInput.value.trim();
+  const notes = notesInput.value;
+  try {
+    const updated = await invoke("update_pin", { id, label, notes });
+    entry.pin = updated;
+    entry.marker.options.title = updated.label;
+    entry.marker.getElement()?.setAttribute("title", updated.label);
+    if (selectedId === id) setSaveState("ok", t("panel.saved"));
+  } catch (err) {
+    console.error(err);
+    if (selectedId === id) setSaveState("err", t("panel.saveFailed", { msg: err?.message ?? String(err) }));
+  }
+}
+labelInput.addEventListener("input", scheduleSave);
+notesInput.addEventListener("input", scheduleSave);
+labelInput.addEventListener("blur", flushSave);
+notesInput.addEventListener("blur", flushSave);
+window.addEventListener("beforeunload", flushSave);
 
 $("#pin-delete").addEventListener("click", async () => {
   if (selectedId == null || !confirm(t("panel.deleteConfirm"))) return;
@@ -79,7 +130,7 @@ $("#pin-delete").addEventListener("click", async () => {
 function addMarker(pin) {
   const marker = L.marker(toLatLng(pin.x, pin.y), { title: pin.label })
     .addTo(map)
-    .on("click", () => showPin(pin.id));
+    .on("click", () => { flushSave(); showPin(pin.id); });
   pins.set(pin.id, { pin, marker });
   return marker;
 }
@@ -99,10 +150,10 @@ async function createPinAt(latlng) {
   const { x, y } = toPixel(latlng);
   try {
     // This is the round-trip: JS -> Rust -> SQLite -> Rust -> JS.
-    const pin = await invoke("add_pin", { levelId: level.id, x, y, label: t("pin.newLabel"), notes: "" });
+    const pin = await invoke("add_pin", { levelId: level.id, x, y, label: "", notes: "" });
     addMarker(pin);
     setPlacing(false);
-    showPin(pin.id);
+    showPin(pin.id, { focus: true });
     setStatus(t("status.saved", { id: pin.id, x, y }));
   } catch (err) { showError(err); }
 }
@@ -113,7 +164,7 @@ for (const [code, name] of Object.entries(SUPPORTED)) langSelect.add(new Option(
 langSelect.addEventListener("change", () => setLanguage(langSelect.value));
 document.addEventListener("languagechange", () => {
   // data-i18n elements are refreshed by i18n.js; strings built here need redoing
-  if (selectedId != null) showPin(selectedId);
+  if (selectedId != null && dirtyId == null) showPin(selectedId);
   setPlacing(placing);
 });
 
