@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------
+# Node / frontend
+# ---------------------------------------------------------------
+node_modules/
+dist/
+.vite/
+*.log
+npm-debug.log*
+.npm/
+
+# ---------------------------------------------------------------
+# Rust / Tauri backend
+# ---------------------------------------------------------------
+# The build directory. Reaches several GB — must never be committed.
+src-tauri/target/
+**/*.rs.bk
+
+# Tauri build output and generated bundles
+src-tauri/gen/
+*.pdb
+
+# Signing keys for the updater — secrets, never commit
+*.key
+*.key.pub
+
+# ---------------------------------------------------------------
+# Application data (local, personal, and large)
+# ---------------------------------------------------------------
+# SQLite lives in the OS app-data directory at runtime, but ignore any
+# stray copy made while developing.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Renovation photos: large binaries that git handles badly.
+# These live in the app data directory; backup is an export bundle, not git.
+photos/
+plans/private/
+
+# ---------------------------------------------------------------
+# Local working notes — not part of the published project
+# ---------------------------------------------------------------
+NOTES.md
+scratch/
+
+# ---------------------------------------------------------------
+# Environment / editor / OS
+# ---------------------------------------------------------------
+.env
+.env.local
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
