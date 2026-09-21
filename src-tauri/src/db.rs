@@ -149,6 +149,16 @@ pub fn add_pin(conn: &Connection, level_id: i64, x: f64, y: f64, label: &str, no
     Ok(get_pin(conn, id)?.expect("pin just inserted must exist"))
 }
 
+/// Change what a pin says. Position is deliberately not editable here — moving
+/// a pin is a separate gesture (drag) with its own command later.
+pub fn update_pin(conn: &Connection, id: i64, label: &str, notes: &str) -> rusqlite::Result<Option<Pin>> {
+    conn.execute(
+        "UPDATE pins SET label = ?1, notes = ?2 WHERE id = ?3",
+        params![label, notes, id],
+    )?;
+    get_pin(conn, id)
+}
+
 pub fn delete_pin(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
     conn.execute("DELETE FROM pins WHERE id = ?1", [id])
 }
