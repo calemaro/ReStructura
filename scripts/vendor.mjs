@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const out = join(root, "src", "vendor", "leaflet");
+const out = join(root, "src", "public", "vendor", "leaflet");
 const src = join(root, "node_modules", "leaflet", "dist");
 
 if (!existsSync(src)) {

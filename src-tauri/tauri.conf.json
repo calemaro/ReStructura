@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.planfloorviewer.app",
   "build": {
-    "frontendDist": "../src"
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev:web",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": true,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draws the sample floor plan that ships with the repository (src/assets/demo-plan.png).
+"""Draws the sample floor plan that ships with the repository (src/public/assets/demo-plan.png).
 
 The plan is fictional. It exists so the app runs for anyone who clones the repo
 without needing a real drawing. Style follows a 1:100 architectural plan: thick
@@ -113,5 +113,5 @@ d.text((nx, ny - 60), "N", fill=INK, font=small, anchor="ms")
 
 d.text((W // 2, 40), "DEMO PLAN — fictional layout for testing", fill=(120, 126, 120), font=small, anchor="mm")
 
-img.save("src/assets/demo-plan.png", optimize=True)
-print(f"wrote src/assets/demo-plan.png  {W}x{H}px  ({PX_PER_M} px/m)")
+img.save("src/public/assets/demo-plan.png", optimize=True)
+print(f"wrote src/public/assets/demo-plan.png  {W}x{H}px  ({PX_PER_M} px/m)")

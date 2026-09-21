@@ -63,6 +63,6 @@ Thumbs.db
 # ---------------------------------------------------------------
 # Generated at install time (npm postinstall copies Leaflet here)
 # ---------------------------------------------------------------
-src/vendor/
+src/public/vendor/
 dist-ssr/
 *.local
