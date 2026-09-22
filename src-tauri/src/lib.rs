@@ -165,6 +165,23 @@ fn list_levels(state: State<AppState>) -> R<Vec<db::Level>> {
     })
 }
 
+/// Calibration: the user measures one real distance and clicks its two ends on
+/// the plan, giving centimetres per pixel for this level. Pass None to clear it.
+#[tauri::command]
+fn set_level_scale(state: State<AppState>, level_id: i64, cm_per_px: Option<f64>) -> R<db::Level> {
+    if let Some(v) = cm_per_px {
+        if !v.is_finite() || v <= 0.0 {
+            return Err("the measured distance must be a positive number".into());
+        }
+    }
+    with_project_mut(&state, |conn, dir| {
+        db::set_level_scale(conn, level_id, cm_per_px)
+            .map_err(s)?
+            .map(|l| with_file(dir, l))
+            .ok_or_else(|| format!("level {level_id} does not exist"))
+    })
+}
+
 /// Copy a picked image into the project and register it as a new level.
 #[tauri::command]
 fn import_plan(state: State<AppState>, src_path: String, name: String) -> R<db::Level> {
@@ -262,6 +279,41 @@ fn set_measurements(
     }
     with_project_mut(&state, |conn, _| {
         db::set_measurements(conn, pin_id, &list).map_err(s)
+    })
+}
+
+// ---------------------------------------------------------------------------
+// rulers
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+fn list_rulers(state: State<AppState>, level_id: i64) -> R<Vec<db::Ruler>> {
+    with_project(&state, |conn, _| db::list_rulers(conn, level_id).map_err(s))
+}
+
+#[tauri::command]
+fn add_ruler(
+    state: State<AppState>,
+    level_id: i64,
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+) -> R<db::Ruler> {
+    with_project_mut(&state, |conn, _| {
+        db::add_ruler(conn, level_id, x1, y1, x2, y2).map_err(s)
+    })
+}
+
+#[tauri::command]
+fn restore_ruler(state: State<AppState>, ruler: db::Ruler) -> R<db::Ruler> {
+    with_project_mut(&state, |conn, _| db::restore_ruler(conn, &ruler).map_err(s))
+}
+
+#[tauri::command]
+fn delete_ruler(state: State<AppState>, id: i64) -> R<bool> {
+    with_project_mut(&state, |conn, _| {
+        Ok(db::delete_ruler(conn, id).map_err(s)? > 0)
     })
 }
 
@@ -436,6 +488,7 @@ pub fn run() {
             set_colour_scheme,
             list_levels,
             import_plan,
+            set_level_scale,
             list_pins,
             add_pin,
             update_pin,
@@ -444,6 +497,10 @@ pub fn run() {
             delete_pin,
             list_measurements,
             set_measurements,
+            list_rulers,
+            add_ruler,
+            restore_ruler,
+            delete_ruler,
             list_rooms,
             add_room,
             update_room,

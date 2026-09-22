@@ -10,10 +10,13 @@ export const showError = (err) => {
 
 /** Ask for one line of text. Resolves with the string, or null if cancelled.
  *  (The webview has no window.prompt, so this is a <dialog>.) */
-export function askText(title, { placeholder = "", value = "" } = {}) {
+export function askText(title, { placeholder = "", value = "", hint = "" } = {}) {
   const dlg = document.querySelector("#ask");
   const input = document.querySelector("#ask-input");
   document.querySelector("#ask-title").textContent = title;
+  const hintEl = document.querySelector("#ask-hint");
+  hintEl.textContent = hint;
+  hintEl.hidden = !hint;
   input.placeholder = placeholder;
   input.value = value;
   return new Promise((resolve) => {

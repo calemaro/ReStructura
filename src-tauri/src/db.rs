@@ -23,6 +23,11 @@ pub struct Level {
     /// Relative to the project folder, e.g. "plans/kitchen.png". This is what is stored.
     pub image_path: String,
     pub sort_order: i64,
+    /// Centimetres per image pixel, once the user has calibrated this level
+    /// against a real measured distance. None = not calibrated; every feature
+    /// that needs real-world lengths stays hidden until it is set.
+    #[serde(default)]
+    pub cm_per_px: Option<f64>,
     /// Absolute path on this machine, filled in when the level is handed to the frontend.
     /// Never stored: it would break the moment the project moves to another computer.
     #[serde(default)]
@@ -49,6 +54,21 @@ pub struct Pin {
 }
 fn default_category() -> String {
     "other".into()
+}
+
+/// A distance the user measured on the plan and kept: the two endpoints, in
+/// image pixels. The length is derived from the level's calibration at display
+/// time, so recalibrating updates every ruler at once.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Ruler {
+    #[serde(default)]
+    pub id: i64,
+    pub level_id: i64,
+    pub x1: f64,
+    pub y1: f64,
+    pub x2: f64,
+    pub y2: f64,
 }
 
 /// A room label the user places on the plan: a name, an optional ceiling
@@ -132,7 +152,8 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             id          INTEGER PRIMARY KEY,
             name        TEXT    NOT NULL,
             image_path  TEXT    NOT NULL,
-            sort_order  INTEGER NOT NULL DEFAULT 0
+            sort_order  INTEGER NOT NULL DEFAULT 0,
+            cm_per_px   REAL
          );
          CREATE TABLE IF NOT EXISTS pins (
             id          INTEGER PRIMARY KEY,
@@ -166,6 +187,14 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             y           REAL    NOT NULL,
             sort_order  INTEGER NOT NULL DEFAULT 0
          );
+         CREATE TABLE IF NOT EXISTS rulers (
+            id          INTEGER PRIMARY KEY,
+            level_id    INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+            x1          REAL    NOT NULL,
+            y1          REAL    NOT NULL,
+            x2          REAL    NOT NULL,
+            y2          REAL    NOT NULL
+         );
          CREATE TABLE IF NOT EXISTS measurements (
             id          INTEGER PRIMARY KEY,
             pin_id      INTEGER NOT NULL REFERENCES pins(id) ON DELETE CASCADE,
@@ -176,7 +205,8 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
          );
          CREATE INDEX IF NOT EXISTS pins_by_level ON pins(level_id);
          CREATE INDEX IF NOT EXISTS measurements_by_pin ON measurements(pin_id);
-         CREATE INDEX IF NOT EXISTS rooms_by_level ON rooms(level_id);",
+         CREATE INDEX IF NOT EXISTS rooms_by_level ON rooms(level_id);
+         CREATE INDEX IF NOT EXISTS rulers_by_level ON rulers(level_id);",
     )?;
 
     migrate(&conn)?;
@@ -190,7 +220,7 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
 /// and is applied in order, so a database from any earlier release ends up
 /// current. `CREATE TABLE IF NOT EXISTS` above already handles brand-new
 /// files, which is why a fresh database starts at the latest version.
-const DB_VERSION: i64 = 6;
+const DB_VERSION: i64 = 8;
 
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let mut v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
@@ -246,7 +276,8 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                     y           REAL    NOT NULL,
                     sort_order  INTEGER NOT NULL DEFAULT 0
                  );
-                 CREATE INDEX IF NOT EXISTS rooms_by_level ON rooms(level_id);",
+                 CREATE INDEX IF NOT EXISTS rooms_by_level ON rooms(level_id);
+         CREATE INDEX IF NOT EXISTS rulers_by_level ON rulers(level_id);",
             )?;
         }
         let has_room_id: bool = conn
@@ -258,6 +289,19 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             )?;
         }
         v = 6;
+    }
+    if v < 7 {
+        let has: bool = conn
+            .prepare("SELECT 1 FROM pragma_table_info('levels') WHERE name = 'cm_per_px'")?
+            .exists([])?;
+        if !has {
+            conn.execute_batch("ALTER TABLE levels ADD COLUMN cm_per_px REAL;")?;
+        }
+        v = 7;
+    }
+    if v < 8 {
+        // rulers table: created by the CREATE TABLE IF NOT EXISTS block above.
+        v = 8;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
@@ -286,8 +330,9 @@ pub fn seed_demo(conn: &Connection, image_path: &str) -> rusqlite::Result<()> {
 }
 
 pub fn list_levels(conn: &Connection) -> rusqlite::Result<Vec<Level>> {
-    let mut stmt = conn
-        .prepare("SELECT id, name, image_path, sort_order FROM levels ORDER BY sort_order, id")?;
+    let mut stmt = conn.prepare(
+        "SELECT id, name, image_path, sort_order, cm_per_px FROM levels ORDER BY sort_order, id",
+    )?;
     // query_map runs the statement and turns each row into a Level via the closure.
     // collect() gathers them into a Vec, stopping at the first error if any.
     let rows = stmt.query_map([], row_to_level)?;
@@ -296,7 +341,7 @@ pub fn list_levels(conn: &Connection) -> rusqlite::Result<Vec<Level>> {
 
 pub fn get_level(conn: &Connection, id: i64) -> rusqlite::Result<Option<Level>> {
     conn.query_row(
-        "SELECT id, name, image_path, sort_order FROM levels WHERE id = ?1",
+        "SELECT id, name, image_path, sort_order, cm_per_px FROM levels WHERE id = ?1",
         [id],
         row_to_level,
     )
@@ -309,6 +354,7 @@ fn row_to_level(r: &rusqlite::Row<'_>) -> rusqlite::Result<Level> {
         name: r.get(1)?,
         image_path: r.get(2)?,
         sort_order: r.get(3)?,
+        cm_per_px: r.get(4)?,
         image_file: String::new(),
     })
 }
@@ -625,4 +671,78 @@ pub fn restore_room(conn: &Connection, r: &Room) -> rusqlite::Result<Room> {
 
 pub fn delete_room(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
     conn.execute("DELETE FROM rooms WHERE id = ?1", [id])
+}
+
+/// Record (or clear, with None) how many centimetres one image pixel represents.
+pub fn set_level_scale(
+    conn: &Connection,
+    level_id: i64,
+    cm_per_px: Option<f64>,
+) -> rusqlite::Result<Option<Level>> {
+    conn.execute(
+        "UPDATE levels SET cm_per_px = ?1 WHERE id = ?2",
+        params![cm_per_px, level_id],
+    )?;
+    get_level(conn, level_id)
+}
+
+// ---------------------------------------------------------------------------
+// rulers — measured distances kept on the plan
+// ---------------------------------------------------------------------------
+
+const RULER_COLS: &str = "id, level_id, x1, y1, x2, y2";
+
+fn row_to_ruler(r: &rusqlite::Row<'_>) -> rusqlite::Result<Ruler> {
+    Ok(Ruler {
+        id: r.get(0)?,
+        level_id: r.get(1)?,
+        x1: r.get(2)?,
+        y1: r.get(3)?,
+        x2: r.get(4)?,
+        y2: r.get(5)?,
+    })
+}
+
+pub fn list_rulers(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Ruler>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {RULER_COLS} FROM rulers WHERE level_id = ?1 ORDER BY id"
+    ))?;
+    let rows = stmt.query_map([level_id], row_to_ruler)?;
+    rows.collect()
+}
+
+pub fn add_ruler(
+    conn: &Connection,
+    level_id: i64,
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+) -> rusqlite::Result<Ruler> {
+    conn.execute(
+        "INSERT INTO rulers (level_id, x1, y1, x2, y2) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![level_id, x1, y1, x2, y2],
+    )?;
+    let id = conn.last_insert_rowid();
+    conn.query_row(
+        &format!("SELECT {RULER_COLS} FROM rulers WHERE id = ?1"),
+        [id],
+        row_to_ruler,
+    )
+}
+
+pub fn restore_ruler(conn: &Connection, r: &Ruler) -> rusqlite::Result<Ruler> {
+    conn.execute(
+        "INSERT OR REPLACE INTO rulers (id, level_id, x1, y1, x2, y2) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![r.id, r.level_id, r.x1, r.y1, r.x2, r.y2],
+    )?;
+    conn.query_row(
+        &format!("SELECT {RULER_COLS} FROM rulers WHERE id = ?1"),
+        [r.id],
+        row_to_ruler,
+    )
+}
+
+pub fn delete_ruler(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
+    conn.execute("DELETE FROM rulers WHERE id = ?1", [id])
 }

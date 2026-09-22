@@ -25,6 +25,7 @@ export const setColourScheme= (scheme)    => invoke("set_colour_scheme", { schem
 // ---- levels --------------------------------------------------------------------------
 export const listLevels = ()               => invoke("list_levels");
 export const importPlan = (srcPath, name)  => invoke("import_plan", { srcPath, name });
+export const setLevelScale = (levelId, cmPerPx) => invoke("set_level_scale", { levelId, cmPerPx });
 
 // ---- pins ----------------------------------------------------------------------------
 export const listPins   = (levelId)                    => invoke("list_pins", { levelId });
@@ -37,6 +38,12 @@ export const deletePin  = (id)                         => invoke("delete_pin", {
 // ---- measurements --------------------------------------------------------------------
 export const listMeasurements = (pinId)       => invoke("list_measurements", { pinId });
 export const setMeasurements  = (pinId, list) => invoke("set_measurements", { pinId, list });
+
+// ---- rulers (measurements kept on the plan) -------------------------------------------
+export const listRulers   = (levelId)                => invoke("list_rulers", { levelId });
+export const addRuler     = (levelId, x1, y1, x2, y2) => invoke("add_ruler", { levelId, x1, y1, x2, y2 });
+export const restoreRuler = (ruler)                  => invoke("restore_ruler", { ruler });
+export const deleteRuler  = (id)                     => invoke("delete_ruler", { id });
 
 // ---- rooms ---------------------------------------------------------------------------
 export const listRooms   = (levelId)                      => invoke("list_rooms", { levelId });
