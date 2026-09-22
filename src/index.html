@@ -11,10 +11,9 @@
     <!-- Main menu header: app-wide controls only -->
     <header class="toolbar menu-bar" id="menu-bar">
       <div class="brand"><span class="brand-name" data-i18n="app.title"></span><span class="brand-tagline" data-i18n="app.tagline"></span></div>
-      <label class="lang">
-        <span data-i18n="toolbar.language"></span>
-        <select class="lang-select" aria-label="Language"></select>
-      </label>
+      <button class="btn-settings" type="button" data-i18n-attr="title:settings.open,aria-label:settings.open">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
     </header>
 
     <!-- Plan header: shown only while a project is open -->
@@ -39,10 +38,9 @@
         <button id="btn-import-plan" type="button" hidden data-i18n="toolbar.importPlan"></button>
         <button id="btn-search" type="button" data-i18n-attr="title:search.open"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></button>
         <button id="btn-fit" type="button" data-i18n="toolbar.zoomFit"></button>
-        <label class="lang">
-          <span data-i18n="toolbar.language"></span>
-          <select class="lang-select" aria-label="Language"></select>
-        </label>
+        <button class="btn-settings" type="button" data-i18n-attr="title:settings.open,aria-label:settings.open">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
       </div>
     </header>
 
@@ -206,6 +204,47 @@
           <button id="viewer-remove" type="button" class="danger" data-i18n="photos.remove"></button>
         </div>
       </div>
+
+      <!-- Settings: a full screen, like the main menu -->
+      <section id="settings" class="chooser" hidden>
+        <div class="chooser-card settings-card">
+          <div class="chooser-head">
+            <h1 data-i18n="settings.title"></h1>
+            <button id="settings-close" type="button" class="icon-btn" data-i18n-attr="title:settings.close,aria-label:settings.close">×</button>
+          </div>
+
+          <h2 class="settings-section" data-i18n="settings.app"></h2>
+          <p class="settings-hint" data-i18n="settings.appHint"></p>
+          <dl class="settings-grid">
+            <dt><label for="set-language" data-i18n="settings.language"></label></dt>
+            <dd><select id="set-language"></select></dd>
+            <dt><label for="set-theme" data-i18n="settings.theme"></label></dt>
+            <dd><select id="set-theme"></select></dd>
+            <dt><label for="set-units" data-i18n="settings.units"></label></dt>
+            <dd><select id="set-units"></select><p class="settings-hint" data-i18n="settings.unitsHint"></p></dd>
+            <dt><label for="set-scheme" data-i18n="settings.defaultScheme"></label></dt>
+            <dd><select id="set-scheme"></select></dd>
+            <dt data-i18n="settings.storage"></dt>
+            <dd class="settings-path"><span id="set-storage" class="mono"></span>
+              <button id="set-open-folder" type="button" data-i18n="settings.openFolder"></button></dd>
+          </dl>
+
+          <!-- Only present when a project is open: opened from the main menu, the
+               settings screen shows application preferences and nothing else. -->
+          <div id="settings-project-section" hidden>
+            <h2 class="settings-section" data-i18n="settings.project"></h2>
+            <p class="settings-hint" data-i18n="settings.projectHint"></p>
+            <dl class="settings-grid" id="settings-project">
+              <dt><label for="set-project-name" data-i18n="settings.projectName"></label></dt>
+              <dd><input id="set-project-name" type="text" maxlength="80" autocomplete="off"></dd>
+              <dt><label for="set-project-scheme" data-i18n="settings.projectScheme"></label></dt>
+              <dd><select id="set-project-scheme"></select></dd>
+              <dt data-i18n="settings.stats"></dt>
+              <dd id="set-stats" class="mono"></dd>
+            </dl>
+          </div>
+        </div>
+      </section>
 
       <!-- Small text prompt (the webview has no window.prompt) -->
       <dialog id="ask" class="ask">

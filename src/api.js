@@ -20,6 +20,9 @@ export const deleteProject  = (slug)      => invoke("delete_project", { slug });
 export const exportProject  = (slug, dest)=> invoke("export_project", { slug, dest });
 export const importProject  = (zipPath)   => invoke("import_project", { zipPath });
 export const projectsDir    = ()          => invoke("projects_dir");
+export const renameProject  = (slug, name)=> invoke("rename_project", { slug, name });
+export const projectStats   = ()          => invoke("project_stats");
+export const openPath       = (path)      => (tauri ? tauri.opener.openPath(path) : notDesktop());
 export const setColourScheme= (scheme)    => invoke("set_colour_scheme", { scheme });
 
 // ---- levels --------------------------------------------------------------------------

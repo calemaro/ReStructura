@@ -6,6 +6,7 @@
 import * as api from "./api.js";
 import { t, currentLanguage } from "./i18n.js";
 import { setStatus, showError, formatWhen } from "./ui.js";
+import * as settings from "./settings.js";
 
 const LAST_KEY = "restructura.lastProject";
 const $ = (s) => document.querySelector(s);
@@ -23,7 +24,12 @@ export function init(openCallback, showCallback) {
     const name = input.value.trim();
     if (!name) { input.focus(); return; }
     try {
-      const p = await api.createProject(name);
+      let p = await api.createProject(name);
+      // a new project starts with the scheme chosen in Settings
+      const preferred = settings.value("defaultColourScheme");
+      if (preferred && preferred !== p.colourScheme) {
+        try { p = await api.setColourScheme(preferred); } catch (_) { /* keep the default */ }
+      }
       input.value = "";
       await opened(p);
     } catch (err) { showError(err); }
