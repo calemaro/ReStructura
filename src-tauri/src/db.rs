@@ -20,8 +20,13 @@ use std::path::Path;
 pub struct Level {
     pub id: i64,
     pub name: String,
+    /// Relative to the project folder, e.g. "plans/kitchen.png". This is what is stored.
     pub image_path: String,
     pub sort_order: i64,
+    /// Absolute path on this machine, filled in when the level is handed to the frontend.
+    /// Never stored: it would break the moment the project moves to another computer.
+    #[serde(default)]
+    pub image_file: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -82,20 +87,14 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
          CREATE INDEX IF NOT EXISTS pins_by_level ON pins(level_id);",
     )?;
 
-    seed_if_empty(&conn)?;
     Ok(conn)
 }
 
-/// First launch only: register the demo plan and one example pin, so the app
-/// opens showing something rather than an empty screen.
-fn seed_if_empty(conn: &Connection) -> rusqlite::Result<()> {
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM levels", [], |r| r.get(0))?;
-    if count > 0 {
-        return Ok(());
-    }
+/// Used by the demo project only: one level with the sample plan and one example pin.
+pub fn seed_demo(conn: &Connection, image_path: &str) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO levels (name, image_path, sort_order) VALUES (?1, ?2, 0)",
-        params!["Demo plan", "assets/demo-plan.png"],
+        params!["Demo plan", image_path],
     )?;
     let level_id = conn.last_insert_rowid();
     conn.execute(
@@ -116,10 +115,17 @@ pub fn list_levels(conn: &Connection) -> rusqlite::Result<Vec<Level>> {
     let mut stmt = conn.prepare("SELECT id, name, image_path, sort_order FROM levels ORDER BY sort_order, id")?;
     // query_map runs the statement and turns each row into a Level via the closure.
     // collect() gathers them into a Vec, stopping at the first error if any.
-    let rows = stmt.query_map([], |r| {
-        Ok(Level { id: r.get(0)?, name: r.get(1)?, image_path: r.get(2)?, sort_order: r.get(3)? })
-    })?;
+    let rows = stmt.query_map([], row_to_level)?;
     rows.collect()
+}
+
+pub fn get_level(conn: &Connection, id: i64) -> rusqlite::Result<Option<Level>> {
+    conn.query_row("SELECT id, name, image_path, sort_order FROM levels WHERE id = ?1", [id], row_to_level)
+        .optional()
+}
+
+fn row_to_level(r: &rusqlite::Row<'_>) -> rusqlite::Result<Level> {
+    Ok(Level { id: r.get(0)?, name: r.get(1)?, image_path: r.get(2)?, sort_order: r.get(3)?, image_file: String::new() })
 }
 
 pub fn list_pins(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Pin>> {

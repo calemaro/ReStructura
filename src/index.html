@@ -8,13 +8,28 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="toolbar">
+    <!-- Main menu header: app-wide controls only -->
+    <header class="toolbar menu-bar" id="menu-bar">
+      <div class="brand"><span class="brand-name" data-i18n="app.title"></span><span class="brand-tagline" data-i18n="app.tagline"></span></div>
+      <label class="lang">
+        <span data-i18n="toolbar.language"></span>
+        <select class="lang-select" aria-label="Language"></select>
+      </label>
+    </header>
+
+    <!-- Plan header: shown only while a project is open -->
+    <header class="toolbar plan-bar" id="plan-bar" hidden>
       <div class="brand">
-        <span class="brand-name" data-i18n="app.title"></span>
-        <span class="brand-tagline" data-i18n="app.tagline"></span>
+        <button id="btn-projects" type="button" class="back" data-i18n-attr="title:menu.back">‹ <span data-i18n="menu.back"></span></button>
+        <span class="crumb-sep">/</span>
+        <span id="project-name" class="project-name"></span>
       </div>
       <div class="toolbar-right">
-        <span class="level-name" id="level-name"></span>
+        <label class="level">
+          <span data-i18n="toolbar.level"></span>
+          <select id="level-select"></select>
+        </label>
+        <button id="btn-import-plan" type="button" data-i18n="toolbar.importPlan"></button>
         <span class="btn-group">
           <button id="btn-undo" type="button" disabled data-i18n-attr="title:toolbar.undo,aria-label:toolbar.undo">↶</button>
           <button id="btn-redo" type="button" disabled data-i18n-attr="title:toolbar.redo,aria-label:toolbar.redo">↷</button>
@@ -23,13 +38,31 @@
         <button id="btn-fit" type="button" data-i18n="toolbar.zoomFit"></button>
         <label class="lang">
           <span data-i18n="toolbar.language"></span>
-          <select id="lang-select" aria-label="Language"></select>
+          <select class="lang-select" aria-label="Language"></select>
         </label>
       </div>
     </header>
 
     <main class="workspace">
       <div id="plan" class="plan"></div>
+      <!-- Empty project: the two ways to get a first plan -->
+      <section id="plan-empty" class="plan-empty" hidden>
+        <div class="start">
+          <h2 data-i18n="start.title"></h2>
+          <p class="start-intro" data-i18n="start.intro"></p>
+          <div class="start-choices">
+            <button id="start-import" type="button" class="start-card">
+              <strong data-i18n="start.import"></strong>
+              <span data-i18n="start.importHint"></span>
+            </button>
+            <button id="start-draw" type="button" class="start-card" disabled>
+              <strong data-i18n="start.draw"></strong>
+              <span data-i18n="start.drawHint"></span>
+              <em class="soon" data-i18n="start.soon"></em>
+            </button>
+          </div>
+        </div>
+      </section>
 
       <aside id="panel" class="panel" hidden>
         <div class="panel-head">
@@ -51,9 +84,38 @@
           <button id="pin-delete" type="button" class="danger" data-i18n="panel.delete"></button>
         </div>
       </aside>
+
+      <!-- Project chooser: shown on start and from the toolbar -->
+      <section id="chooser" class="chooser" hidden>
+        <div class="chooser-card">
+          <div class="chooser-head">
+            <h1 data-i18n="chooser.title"></h1>
+          </div>
+          <p class="chooser-intro" data-i18n="chooser.intro"></p>
+          <form id="new-project" class="new-project">
+            <input id="new-project-name" type="text" maxlength="80" autocomplete="off" data-i18n-attr="placeholder:chooser.newPlaceholder">
+            <button type="submit" class="primary" data-i18n="chooser.create"></button>
+            <button id="btn-import-project" type="button" data-i18n="chooser.import"></button>
+          </form>
+          <ul id="project-list" class="project-list"></ul>
+          <p id="chooser-where" class="chooser-where mono"></p>
+        </div>
+      </section>
+
+      <!-- Small text prompt (the webview has no window.prompt) -->
+      <dialog id="ask" class="ask">
+        <form method="dialog">
+          <label id="ask-title" for="ask-input"></label>
+          <input id="ask-input" type="text" maxlength="80" autocomplete="off">
+          <div class="ask-actions">
+            <button type="button" id="ask-cancel" data-i18n="dialog.cancel"></button>
+            <button type="submit" class="primary" data-i18n="dialog.ok"></button>
+          </div>
+        </form>
+      </dialog>
     </main>
 
-    <footer class="status" id="status"></footer>
+    <footer class="status" id="status" hidden></footer>
 
     <script src="vendor/leaflet/leaflet.js"></script>
     <script type="module" src="main.js"></script>

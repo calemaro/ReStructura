@@ -73,6 +73,7 @@ button.danger:hover { background: rgba(179, 38, 30, 0.08); }
 
 .workspace { position: relative; flex: 1 1 auto; min-height: 0; }
 .plan { position: absolute; inset: 0; background: var(--paper); }
+.plan[hidden] { display: none; }
 
 /* Detail panel slides over the right edge of the map. */
 .panel[hidden] { display: none; }
@@ -122,3 +123,52 @@ button.danger:hover { background: rgba(179, 38, 30, 0.08); }
 
 /* Leaflet defaults tuned for a drawing rather than a world map */
 .leaflet-container { background: var(--paper); font: inherit; }
+
+/* ---- project chooser -------------------------------------------------------------- */
+.back { padding: 3px 10px 3px 8px; }
+.crumb-sep { color: var(--rule); font-size: 16px; }
+.project-name { font-weight: 600; }
+.toolbar[hidden], .status[hidden] { display: none; }
+.menu-bar { justify-content: space-between; }
+.level { display: flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 12.5px; }
+.level[hidden] { display: none; }
+.plan-empty { position: absolute; inset: 0; margin: 0; display: grid; place-content: center; padding: 24px; overflow: auto; }
+.start { max-width: 640px; text-align: center; }
+.start h2 { margin: 0 0 6px; font-size: 20px; font-weight: 600; }
+.start-intro { color: var(--ink-2); margin: 0 0 22px; }
+.start-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; text-align: left; }
+.start-card { display: grid; gap: 6px; padding: 16px 18px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; text-align: left; position: relative; }
+.start-card:hover:not(:disabled) { border-color: var(--accent); }
+.start-card strong { font-size: 15px; }
+.start-card span { color: var(--ink-2); font-size: 13px; line-height: 1.4; }
+.start-card:disabled { opacity: 0.6; cursor: default; }
+.start-card .soon { position: absolute; top: 10px; right: 12px; font-style: normal; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 1px 6px; }
+.plan-empty[hidden] { display: none; }
+
+.chooser { position: absolute; inset: 0; z-index: 1100; background: var(--paper); overflow: auto; padding: 32px 20px; }
+.chooser[hidden] { display: none; }
+.chooser-card { max-width: 720px; margin: 0 auto; }
+.chooser-head { display: flex; align-items: center; justify-content: space-between; }
+.chooser h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.chooser-intro { color: var(--ink-2); max-width: 60ch; margin: 6px 0 18px; }
+.new-project { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.new-project input { flex: 1 1 260px; font: inherit; padding: 6px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); color: var(--ink); }
+.new-project input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.project-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.project-list li { display: flex; align-items: center; gap: 14px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+.project-list li.current { border-color: var(--accent); }
+.project-list .p-name { font-weight: 600; }
+.project-list .p-meta { color: var(--ink-2); font-size: 12.5px; }
+.project-list .p-main { flex: 1 1 auto; min-width: 0; }
+.project-list .p-actions { display: flex; gap: 6px; }
+.project-list .p-current { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin-left: 8px; }
+.chooser-where { color: var(--ink-2); font-size: 11.5px; margin-top: 18px; word-break: break-all; }
+.chooser-empty { color: var(--ink-2); padding: 18px 0; }
+
+/* ---- text prompt dialog ------------------------------------------------------------ */
+.ask { border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--ink); padding: 18px 20px; min-width: min(420px, 90vw); }
+.ask::backdrop { background: rgba(0, 0, 0, 0.35); }
+.ask label { display: block; font-weight: 600; margin-bottom: 8px; }
+.ask input { width: 100%; font: inherit; padding: 6px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); }
+.ask input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.ask-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
