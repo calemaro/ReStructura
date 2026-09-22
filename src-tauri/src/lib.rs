@@ -58,7 +58,9 @@ fn with_project_mut<T>(state: &AppState, f: impl FnOnce(&Connection, &Path) -> R
     Ok(out)
 }
 
-fn s<E: std::fmt::Display>(e: E) -> String { e.to_string() }
+fn s<E: std::fmt::Display>(e: E) -> String {
+    e.to_string()
+}
 
 /// Levels leave Rust with their absolute image path filled in for this machine.
 fn with_file(dir: &Path, mut l: db::Level) -> db::Level {
@@ -108,7 +110,10 @@ fn close_project(state: State<AppState>) -> R<()> {
 fn delete_project(state: State<AppState>, slug: String) -> R<()> {
     let is_open = {
         let guard = state.current.lock().map_err(s)?;
-        guard.as_ref().map(|p| p.dir == state.projects_dir.join(&slug)).unwrap_or(false)
+        guard
+            .as_ref()
+            .map(|p| p.dir == state.projects_dir.join(&slug))
+            .unwrap_or(false)
     };
     if is_open {
         *state.current.lock().map_err(s)? = None; // drops the connection before the move
@@ -152,7 +157,11 @@ fn projects_dir(state: State<AppState>) -> String {
 #[tauri::command]
 fn list_levels(state: State<AppState>) -> R<Vec<db::Level>> {
     with_project(&state, |conn, dir| {
-        Ok(db::list_levels(conn).map_err(s)?.into_iter().map(|l| with_file(dir, l)).collect())
+        Ok(db::list_levels(conn)
+            .map_err(s)?
+            .into_iter()
+            .map(|l| with_file(dir, l))
+            .collect())
     })
 }
 
@@ -175,21 +184,41 @@ fn list_pins(state: State<AppState>, level_id: i64) -> R<Vec<db::Pin>> {
 }
 
 #[tauri::command]
-fn add_pin(state: State<AppState>, level_id: i64, x: f64, y: f64, label: String, notes: String, category: String) -> R<db::Pin> {
-    with_project_mut(&state, |conn, _| db::add_pin(conn, level_id, x, y, &label, &notes, &category).map_err(s))
+fn add_pin(
+    state: State<AppState>,
+    level_id: i64,
+    x: f64,
+    y: f64,
+    label: String,
+    notes: String,
+    category: String,
+) -> R<db::Pin> {
+    with_project_mut(&state, |conn, _| {
+        db::add_pin(conn, level_id, x, y, &label, &notes, &category).map_err(s)
+    })
 }
 
 #[tauri::command]
-fn update_pin(state: State<AppState>, id: i64, label: String, notes: String, category: String) -> R<db::Pin> {
+fn update_pin(
+    state: State<AppState>,
+    id: i64,
+    label: String,
+    notes: String,
+    category: String,
+) -> R<db::Pin> {
     with_project_mut(&state, |conn, _| {
-        db::update_pin(conn, id, &label, &notes, &category).map_err(s)?.ok_or_else(|| format!("pin {id} does not exist"))
+        db::update_pin(conn, id, &label, &notes, &category)
+            .map_err(s)?
+            .ok_or_else(|| format!("pin {id} does not exist"))
     })
 }
 
 #[tauri::command]
 fn move_pin(state: State<AppState>, id: i64, x: f64, y: f64) -> R<db::Pin> {
     with_project_mut(&state, |conn, _| {
-        db::move_pin(conn, id, x, y).map_err(s)?.ok_or_else(|| format!("pin {id} does not exist"))
+        db::move_pin(conn, id, x, y)
+            .map_err(s)?
+            .ok_or_else(|| format!("pin {id} does not exist"))
     })
 }
 
@@ -200,7 +229,9 @@ fn restore_pin(state: State<AppState>, pin: db::Pin) -> R<db::Pin> {
 
 #[tauri::command]
 fn delete_pin(state: State<AppState>, id: i64) -> R<bool> {
-    with_project_mut(&state, |conn, _| Ok(db::delete_pin(conn, id).map_err(s)? > 0))
+    with_project_mut(&state, |conn, _| {
+        Ok(db::delete_pin(conn, id).map_err(s)? > 0)
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -209,11 +240,17 @@ fn delete_pin(state: State<AppState>, id: i64) -> R<bool> {
 
 #[tauri::command]
 fn list_measurements(state: State<AppState>, pin_id: i64) -> R<Vec<db::Measurement>> {
-    with_project(&state, |conn, _| db::list_measurements(conn, pin_id).map_err(s))
+    with_project(&state, |conn, _| {
+        db::list_measurements(conn, pin_id).map_err(s)
+    })
 }
 
 #[tauri::command]
-fn set_measurements(state: State<AppState>, pin_id: i64, list: Vec<db::Measurement>) -> R<Vec<db::Measurement>> {
+fn set_measurements(
+    state: State<AppState>,
+    pin_id: i64,
+    list: Vec<db::Measurement>,
+) -> R<Vec<db::Measurement>> {
     for m in &list {
         if !["height", "depth", "distance"].contains(&m.kind.as_str()) {
             return Err(format!("unknown measurement kind {}", m.kind));
@@ -222,7 +259,9 @@ fn set_measurements(state: State<AppState>, pin_id: i64, list: Vec<db::Measureme
             return Err("a measurement must be a non-negative number".into());
         }
     }
-    with_project_mut(&state, |conn, _| db::set_measurements(conn, pin_id, &list).map_err(s))
+    with_project_mut(&state, |conn, _| {
+        db::set_measurements(conn, pin_id, &list).map_err(s)
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +271,11 @@ fn set_measurements(state: State<AppState>, pin_id: i64, list: Vec<db::Measureme
 #[tauri::command]
 fn list_photos(state: State<AppState>, pin_id: i64) -> R<Vec<db::Photo>> {
     with_project(&state, |conn, dir| {
-        Ok(db::list_photos(conn, pin_id).map_err(s)?.into_iter().map(|p| photos::with_files(dir, p)).collect())
+        Ok(db::list_photos(conn, pin_id)
+            .map_err(s)?
+            .into_iter()
+            .map(|p| photos::with_files(dir, p))
+            .collect())
     })
 }
 
@@ -240,24 +283,36 @@ fn list_photos(state: State<AppState>, pin_id: i64) -> R<Vec<db::Photo>> {
 #[tauri::command]
 fn add_photos(state: State<AppState>, pin_id: i64, paths: Vec<String>) -> R<Vec<db::Photo>> {
     with_project_mut(&state, |conn, dir| {
-        paths.iter().map(|p| photos::add(dir, conn, pin_id, Path::new(p)).map(|ph| photos::with_files(dir, ph))).collect()
+        paths
+            .iter()
+            .map(|p| {
+                photos::add(dir, conn, pin_id, Path::new(p)).map(|ph| photos::with_files(dir, ph))
+            })
+            .collect()
     })
 }
 
 #[tauri::command]
 fn remove_photo(state: State<AppState>, id: i64) -> R<db::Photo> {
-    with_project_mut(&state, |conn, dir| photos::remove(dir, conn, id).map(|p| photos::with_files(dir, p)))
+    with_project_mut(&state, |conn, dir| {
+        photos::remove(dir, conn, id).map(|p| photos::with_files(dir, p))
+    })
 }
 
 #[tauri::command]
 fn restore_photo(state: State<AppState>, photo: db::Photo) -> R<db::Photo> {
-    with_project_mut(&state, |conn, dir| photos::restore(dir, conn, &photo).map(|p| photos::with_files(dir, p)))
+    with_project_mut(&state, |conn, dir| {
+        photos::restore(dir, conn, &photo).map(|p| photos::with_files(dir, p))
+    })
 }
 
 #[tauri::command]
 fn set_photo_caption(state: State<AppState>, id: i64, caption: String) -> R<db::Photo> {
     with_project_mut(&state, |conn, dir| {
-        db::set_caption(conn, id, &caption).map_err(s)?.map(|p| photos::with_files(dir, p)).ok_or_else(|| "photo not found".to_string())
+        db::set_caption(conn, id, &caption)
+            .map_err(s)?
+            .map(|p| photos::with_files(dir, p))
+            .ok_or_else(|| "photo not found".to_string())
     })
 }
 
@@ -268,9 +323,13 @@ fn set_photo_caption(state: State<AppState>, id: i64, caption: String) -> R<db::
 /// projects folder into the new location so nothing the user made is lost.
 /// Silent no-op once done or when there is nothing to adopt.
 fn adopt_previous_data_dir(app_data: &Path, projects_dir: &Path) {
-    let Some(parent) = app_data.parent() else { return };
+    let Some(parent) = app_data.parent() else {
+        return;
+    };
     let old_projects = parent.join("com.planfloorviewer.app").join("projects");
-    let new_is_empty = std::fs::read_dir(projects_dir).map(|mut d| d.next().is_none()).unwrap_or(true);
+    let new_is_empty = std::fs::read_dir(projects_dir)
+        .map(|mut d| d.next().is_none())
+        .unwrap_or(true);
     if !old_projects.is_dir() || !new_is_empty {
         return;
     }
@@ -306,16 +365,38 @@ pub fn run() {
                 projects::create_demo(&projects_dir)?;
             }
 
-            app.manage(AppState { projects_dir, current: Mutex::new(None) });
+            app.manage(AppState {
+                projects_dir,
+                current: Mutex::new(None),
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            list_projects, create_project, open_project, current_project, close_project, delete_project,
-            export_project, import_project, projects_dir, set_colour_scheme,
-            list_levels, import_plan,
-            list_pins, add_pin, update_pin, move_pin, restore_pin, delete_pin,
-            list_measurements, set_measurements,
-            list_photos, add_photos, remove_photo, restore_photo, set_photo_caption,
+            list_projects,
+            create_project,
+            open_project,
+            current_project,
+            close_project,
+            delete_project,
+            export_project,
+            import_project,
+            projects_dir,
+            set_colour_scheme,
+            list_levels,
+            import_plan,
+            list_pins,
+            add_pin,
+            update_pin,
+            move_pin,
+            restore_pin,
+            delete_pin,
+            list_measurements,
+            set_measurements,
+            list_photos,
+            add_photos,
+            remove_photo,
+            restore_photo,
+            set_photo_caption,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

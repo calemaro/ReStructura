@@ -44,7 +44,9 @@ pub struct Pin {
     pub category: String,
     pub created_at: String,
 }
-fn default_category() -> String { "other".into() }
+fn default_category() -> String {
+    "other".into()
+}
 
 /// A photo attached to a pin. Both paths are relative to the project folder
 /// ("photos/12/2026-09-22-143012-wall.jpg"); `file`/`thumb` are filled in with
@@ -177,7 +179,9 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             .prepare("SELECT 1 FROM pragma_table_info('photos') WHERE name = 'thumb_path'")?
             .exists([])?;
         if !has_thumb {
-            conn.execute_batch("ALTER TABLE photos ADD COLUMN thumb_path TEXT NOT NULL DEFAULT '';")?;
+            conn.execute_batch(
+                "ALTER TABLE photos ADD COLUMN thumb_path TEXT NOT NULL DEFAULT '';",
+            )?;
         }
         v = 4;
     }
@@ -208,7 +212,8 @@ pub fn seed_demo(conn: &Connection, image_path: &str) -> rusqlite::Result<()> {
 }
 
 pub fn list_levels(conn: &Connection) -> rusqlite::Result<Vec<Level>> {
-    let mut stmt = conn.prepare("SELECT id, name, image_path, sort_order FROM levels ORDER BY sort_order, id")?;
+    let mut stmt = conn
+        .prepare("SELECT id, name, image_path, sort_order FROM levels ORDER BY sort_order, id")?;
     // query_map runs the statement and turns each row into a Level via the closure.
     // collect() gathers them into a Vec, stopping at the first error if any.
     let rows = stmt.query_map([], row_to_level)?;
@@ -216,12 +221,22 @@ pub fn list_levels(conn: &Connection) -> rusqlite::Result<Vec<Level>> {
 }
 
 pub fn get_level(conn: &Connection, id: i64) -> rusqlite::Result<Option<Level>> {
-    conn.query_row("SELECT id, name, image_path, sort_order FROM levels WHERE id = ?1", [id], row_to_level)
-        .optional()
+    conn.query_row(
+        "SELECT id, name, image_path, sort_order FROM levels WHERE id = ?1",
+        [id],
+        row_to_level,
+    )
+    .optional()
 }
 
 fn row_to_level(r: &rusqlite::Row<'_>) -> rusqlite::Result<Level> {
-    Ok(Level { id: r.get(0)?, name: r.get(1)?, image_path: r.get(2)?, sort_order: r.get(3)?, image_file: String::new() })
+    Ok(Level {
+        id: r.get(0)?,
+        name: r.get(1)?,
+        image_path: r.get(2)?,
+        sort_order: r.get(3)?,
+        image_file: String::new(),
+    })
 }
 
 pub fn list_pins(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Pin>> {
@@ -241,7 +256,15 @@ pub fn get_pin(conn: &Connection, id: i64) -> rusqlite::Result<Option<Pin>> {
     .optional() // a missing row is `None`, not an error
 }
 
-pub fn add_pin(conn: &Connection, level_id: i64, x: f64, y: f64, label: &str, notes: &str, category: &str) -> rusqlite::Result<Pin> {
+pub fn add_pin(
+    conn: &Connection,
+    level_id: i64,
+    x: f64,
+    y: f64,
+    label: &str,
+    notes: &str,
+    category: &str,
+) -> rusqlite::Result<Pin> {
     conn.execute(
         "INSERT INTO pins (level_id, x, y, label, notes, category) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![level_id, x, y, label, notes, category],
@@ -253,7 +276,13 @@ pub fn add_pin(conn: &Connection, level_id: i64, x: f64, y: f64, label: &str, no
 
 /// Change what a pin says. Position is deliberately not editable here — moving
 /// a pin is a separate gesture (drag) with its own command later.
-pub fn update_pin(conn: &Connection, id: i64, label: &str, notes: &str, category: &str) -> rusqlite::Result<Option<Pin>> {
+pub fn update_pin(
+    conn: &Connection,
+    id: i64,
+    label: &str,
+    notes: &str,
+    category: &str,
+) -> rusqlite::Result<Option<Pin>> {
     conn.execute(
         "UPDATE pins SET label = ?1, notes = ?2, category = ?3 WHERE id = ?4",
         params![label, notes, category, id],
@@ -263,7 +292,10 @@ pub fn update_pin(conn: &Connection, id: i64, label: &str, notes: &str, category
 
 /// Move a pin to new plan-pixel coordinates (edit mode drag).
 pub fn move_pin(conn: &Connection, id: i64, x: f64, y: f64) -> rusqlite::Result<Option<Pin>> {
-    conn.execute("UPDATE pins SET x = ?1, y = ?2 WHERE id = ?3", params![x, y, id])?;
+    conn.execute(
+        "UPDATE pins SET x = ?1, y = ?2 WHERE id = ?3",
+        params![x, y, id],
+    )?;
     get_pin(conn, id)
 }
 
@@ -274,7 +306,16 @@ pub fn restore_pin(conn: &Connection, pin: &Pin) -> rusqlite::Result<Pin> {
     conn.execute(
         "INSERT OR REPLACE INTO pins (id, level_id, x, y, label, notes, category, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![pin.id, pin.level_id, pin.x, pin.y, pin.label, pin.notes, pin.category, pin.created_at],
+        params![
+            pin.id,
+            pin.level_id,
+            pin.x,
+            pin.y,
+            pin.label,
+            pin.notes,
+            pin.category,
+            pin.created_at
+        ],
     )?;
     Ok(get_pin(conn, pin.id)?.expect("pin just restored must exist"))
 }
@@ -305,7 +346,14 @@ pub fn list_measurements(conn: &Connection, pin_id: i64) -> rusqlite::Result<Vec
         "SELECT id, pin_id, kind, reference, value_cm, sort_order FROM measurements WHERE pin_id = ?1 ORDER BY sort_order, id",
     )?;
     let rows = stmt.query_map([pin_id], |r| {
-        Ok(Measurement { id: r.get(0)?, pin_id: r.get(1)?, kind: r.get(2)?, reference: r.get(3)?, value_cm: r.get(4)?, sort_order: r.get(5)? })
+        Ok(Measurement {
+            id: r.get(0)?,
+            pin_id: r.get(1)?,
+            kind: r.get(2)?,
+            reference: r.get(3)?,
+            value_cm: r.get(4)?,
+            sort_order: r.get(5)?,
+        })
     })?;
     rows.collect()
 }
@@ -313,7 +361,11 @@ pub fn list_measurements(conn: &Connection, pin_id: i64) -> rusqlite::Result<Vec
 /// Replace a pin's measurements with `list`, in one transaction. Treating the
 /// list as a single value keeps undo and copy/paste trivial: "before" and
 /// "after" are just two lists.
-pub fn set_measurements(conn: &Connection, pin_id: i64, list: &[Measurement]) -> rusqlite::Result<Vec<Measurement>> {
+pub fn set_measurements(
+    conn: &Connection,
+    pin_id: i64,
+    list: &[Measurement],
+) -> rusqlite::Result<Vec<Measurement>> {
     conn.execute_batch("BEGIN;")?;
     let result = (|| {
         conn.execute("DELETE FROM measurements WHERE pin_id = ?1", [pin_id])?;
@@ -326,8 +378,14 @@ pub fn set_measurements(conn: &Connection, pin_id: i64, list: &[Measurement]) ->
         list_measurements(conn, pin_id)
     })();
     match result {
-        Ok(v) => { conn.execute_batch("COMMIT;")?; Ok(v) }
-        Err(e) => { let _ = conn.execute_batch("ROLLBACK;"); Err(e) }
+        Ok(v) => {
+            conn.execute_batch("COMMIT;")?;
+            Ok(v)
+        }
+        Err(e) => {
+            let _ = conn.execute_batch("ROLLBACK;");
+            Err(e)
+        }
     }
 }
 
@@ -338,20 +396,41 @@ pub fn set_measurements(conn: &Connection, pin_id: i64, list: &[Measurement]) ->
 const PHOTO_COLS: &str = "id, pin_id, file_path, thumb_path, caption, created_at";
 
 fn row_to_photo(r: &rusqlite::Row<'_>) -> rusqlite::Result<Photo> {
-    Ok(Photo { id: r.get(0)?, pin_id: r.get(1)?, file_path: r.get(2)?, thumb_path: r.get(3)?, caption: r.get(4)?, created_at: r.get(5)?, file: String::new(), thumb: String::new() })
+    Ok(Photo {
+        id: r.get(0)?,
+        pin_id: r.get(1)?,
+        file_path: r.get(2)?,
+        thumb_path: r.get(3)?,
+        caption: r.get(4)?,
+        created_at: r.get(5)?,
+        file: String::new(),
+        thumb: String::new(),
+    })
 }
 
 pub fn list_photos(conn: &Connection, pin_id: i64) -> rusqlite::Result<Vec<Photo>> {
-    let mut stmt = conn.prepare(&format!("SELECT {PHOTO_COLS} FROM photos WHERE pin_id = ?1 ORDER BY id"))?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {PHOTO_COLS} FROM photos WHERE pin_id = ?1 ORDER BY id"
+    ))?;
     let rows = stmt.query_map([pin_id], row_to_photo)?;
     rows.collect()
 }
 
 pub fn get_photo(conn: &Connection, id: i64) -> rusqlite::Result<Option<Photo>> {
-    conn.query_row(&format!("SELECT {PHOTO_COLS} FROM photos WHERE id = ?1"), [id], row_to_photo).optional()
+    conn.query_row(
+        &format!("SELECT {PHOTO_COLS} FROM photos WHERE id = ?1"),
+        [id],
+        row_to_photo,
+    )
+    .optional()
 }
 
-pub fn insert_photo(conn: &Connection, pin_id: i64, file_path: &str, thumb_path: &str) -> rusqlite::Result<Photo> {
+pub fn insert_photo(
+    conn: &Connection,
+    pin_id: i64,
+    file_path: &str,
+    thumb_path: &str,
+) -> rusqlite::Result<Photo> {
     conn.execute(
         "INSERT INTO photos (pin_id, file_path, thumb_path) VALUES (?1, ?2, ?3)",
         params![pin_id, file_path, thumb_path],
@@ -369,7 +448,10 @@ pub fn restore_photo(conn: &Connection, p: &Photo) -> rusqlite::Result<Photo> {
 }
 
 pub fn set_caption(conn: &Connection, id: i64, caption: &str) -> rusqlite::Result<Option<Photo>> {
-    conn.execute("UPDATE photos SET caption = ?1 WHERE id = ?2", params![caption, id])?;
+    conn.execute(
+        "UPDATE photos SET caption = ?1 WHERE id = ?2",
+        params![caption, id],
+    )?;
     get_photo(conn, id)
 }
 

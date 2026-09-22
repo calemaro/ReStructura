@@ -52,7 +52,9 @@ pub struct Manifest {
     pub created_at: String,
     pub modified_at: String,
 }
-fn default_scheme() -> String { "it".into() }
+fn default_scheme() -> String {
+    "it".into()
+}
 
 /// What the frontend sees in the project chooser.
 #[derive(Debug, Clone, Serialize)]
@@ -66,10 +68,13 @@ pub struct ProjectInfo {
     pub dir: String,
 }
 
-fn now() -> String { Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true) }
+fn now() -> String {
+    Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}
 
 pub fn read_manifest(dir: &Path) -> R<Manifest> {
-    let text = fs::read_to_string(dir.join("project.json")).map_err(io_err("reading project.json"))?;
+    let text =
+        fs::read_to_string(dir.join("project.json")).map_err(io_err("reading project.json"))?;
     serde_json::from_str(&text).map_err(io_err("parsing project.json"))
 }
 
@@ -88,7 +93,11 @@ pub fn touch(dir: &Path) -> R<()> {
 pub fn info(dir: &Path) -> R<ProjectInfo> {
     let m = read_manifest(dir)?;
     Ok(ProjectInfo {
-        slug: dir.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+        slug: dir
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
         name: m.name,
         colour_scheme: m.colour_scheme,
         created_at: m.created_at,
@@ -117,7 +126,11 @@ pub fn slugify(name: &str) -> String {
         }
     }
     let out = out.trim_end_matches('-').to_string();
-    if out.is_empty() { "project".to_string() } else { out }
+    if out.is_empty() {
+        "project".to_string()
+    } else {
+        out
+    }
 }
 
 /// Keep slugs unique inside the projects directory: name, name-2, name-3, …
@@ -125,7 +138,10 @@ pub fn unique_slug(root: &Path, base: &str) -> String {
     if !root.join(base).exists() {
         return base.to_string();
     }
-    (2..).map(|n| format!("{base}-{n}")).find(|s| !root.join(s).exists()).unwrap()
+    (2..)
+        .map(|n| format!("{base}-{n}"))
+        .find(|s| !root.join(s).exists())
+        .unwrap()
 }
 
 // ---------------------------------------------------------------------------
@@ -160,13 +176,16 @@ pub fn create(root: &Path, name: &str) -> R<ProjectInfo> {
     fs::create_dir_all(dir.join("plans")).map_err(io_err("creating project folder"))?;
     fs::create_dir_all(dir.join("photos")).map_err(io_err("creating project folder"))?;
     let ts = now();
-    write_manifest(&dir, &Manifest {
-        name: name.to_string(),
-        schema_version: SCHEMA_VERSION,
-        colour_scheme: default_scheme(),
-        created_at: ts.clone(),
-        modified_at: ts,
-    })?;
+    write_manifest(
+        &dir,
+        &Manifest {
+            name: name.to_string(),
+            schema_version: SCHEMA_VERSION,
+            colour_scheme: default_scheme(),
+            created_at: ts.clone(),
+            modified_at: ts,
+        },
+    )?;
     db::open(&dir.join("plan.db")).map_err(io_err("creating database"))?; // creates the schema
     info(&dir)
 }
@@ -175,7 +194,8 @@ pub fn create(root: &Path, name: &str) -> R<ProjectInfo> {
 pub fn create_demo(root: &Path) -> R<ProjectInfo> {
     let p = create(root, "Demo plan")?;
     let dir = PathBuf::from(&p.dir);
-    fs::write(dir.join("plans/demo-plan.png"), DEMO_PLAN_PNG).map_err(io_err("writing demo plan"))?;
+    fs::write(dir.join("plans/demo-plan.png"), DEMO_PLAN_PNG)
+        .map_err(io_err("writing demo plan"))?;
     let conn = db::open(&dir.join("plan.db")).map_err(io_err("opening database"))?;
     db::seed_demo(&conn, "plans/demo-plan.png").map_err(io_err("seeding demo"))?;
     Ok(p)
@@ -197,13 +217,15 @@ pub fn migrate_legacy(app_data: &Path, root: &Path) -> R<Option<ProjectInfo>> {
     // Fold any unflushed WAL pages into the main file, then move the database.
     {
         let c = Connection::open(&legacy).map_err(io_err("opening legacy database"))?;
-        c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").map_err(io_err("checkpointing"))?;
+        c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+            .map_err(io_err("checkpointing"))?;
     }
     fs::rename(&legacy, dir.join("plan.db")).map_err(io_err("moving legacy database"))?;
     for suffix in ["-wal", "-shm"] {
         let _ = fs::remove_file(app_data.join(format!("plan.db{suffix}")));
     }
-    fs::write(dir.join("plans/demo-plan.png"), DEMO_PLAN_PNG).map_err(io_err("writing demo plan"))?;
+    fs::write(dir.join("plans/demo-plan.png"), DEMO_PLAN_PNG)
+        .map_err(io_err("writing demo plan"))?;
 
     // The old level pointed at the bundled asset; point it at the project's own copy.
     let conn = db::open(&dir.join("plan.db")).map_err(io_err("opening database"))?;
@@ -214,13 +236,16 @@ pub fn migrate_legacy(app_data: &Path, root: &Path) -> R<Option<ProjectInfo>> {
     .map_err(io_err("updating level paths"))?;
 
     let ts = now();
-    write_manifest(&dir, &Manifest {
-        name: "Demo plan".into(),
-        schema_version: SCHEMA_VERSION,
-        colour_scheme: default_scheme(),
-        created_at: ts.clone(),
-        modified_at: ts,
-    })?;
+    write_manifest(
+        &dir,
+        &Manifest {
+            name: "Demo plan".into(),
+            schema_version: SCHEMA_VERSION,
+            colour_scheme: default_scheme(),
+            created_at: ts.clone(),
+            modified_at: ts,
+        },
+    )?;
     info(&dir).map(Some)
 }
 
@@ -241,7 +266,11 @@ pub fn delete(root: &Path, slug: &str) -> R<()> {
 /// Copy an image the user picked into `plans/` and register it as a level.
 /// Returns the new level. The stored path is relative ("plans/kitchen.png").
 pub fn import_plan(dir: &Path, conn: &Connection, src: &Path, level_name: &str) -> R<db::Level> {
-    let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("png").to_ascii_lowercase();
+    let ext = src
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("png")
+        .to_ascii_lowercase();
     if !["png", "jpg", "jpeg", "webp"].contains(&ext.as_str()) {
         return Err(format!("unsupported image type .{ext} — use PNG or JPEG"));
     }
@@ -255,7 +284,11 @@ pub fn import_plan(dir: &Path, conn: &Connection, src: &Path, level_name: &str) 
     fs::copy(src, dir.join("plans").join(&file)).map_err(io_err("copying plan image"))?;
     let rel = format!("plans/{file}");
     let order: i64 = conn
-        .query_row("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM levels", [], |r| r.get(0))
+        .query_row(
+            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM levels",
+            [],
+            |r| r.get(0),
+        )
         .map_err(io_err("reading levels"))?;
     conn.execute(
         "INSERT INTO levels (name, image_path, sort_order) VALUES (?1, ?2, ?3)",
@@ -263,7 +296,9 @@ pub fn import_plan(dir: &Path, conn: &Connection, src: &Path, level_name: &str) 
     )
     .map_err(io_err("inserting level"))?;
     let id = conn.last_insert_rowid();
-    db::get_level(conn, id).map_err(io_err("reading level"))?.ok_or_else(|| "level vanished".to_string())
+    db::get_level(conn, id)
+        .map_err(io_err("reading level"))?
+        .ok_or_else(|| "level vanished".to_string())
 }
 
 // ---------------------------------------------------------------------------
@@ -274,19 +309,33 @@ pub fn export_zip(dir: &Path, dest: &Path) -> R<()> {
     // Make sure plan.db alone holds everything (WAL pages folded in), then skip -wal/-shm.
     {
         let c = Connection::open(dir.join("plan.db")).map_err(io_err("opening database"))?;
-        c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").map_err(io_err("checkpointing"))?;
+        c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+            .map_err(io_err("checkpointing"))?;
     }
     let file = File::create(dest).map_err(io_err("creating zip"))?;
     let mut zip = zip::ZipWriter::new(file);
-    let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    let opts = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
 
-    fn walk(zip: &mut zip::ZipWriter<File>, opts: zip::write::SimpleFileOptions, root: &Path, cur: &Path) -> R<()> {
+    fn walk(
+        zip: &mut zip::ZipWriter<File>,
+        opts: zip::write::SimpleFileOptions,
+        root: &Path,
+        cur: &Path,
+    ) -> R<()> {
         for entry in fs::read_dir(cur).map_err(io_err("reading folder"))? {
             let path = entry.map_err(io_err("reading folder"))?.path();
-            let name = path.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/");
-            if name == ".trash" || name.starts_with(".trash/") { continue; } // removed photos stay behind
+            let name = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            if name == ".trash" || name.starts_with(".trash/") {
+                continue;
+            } // removed photos stay behind
             if path.is_dir() {
-                zip.add_directory(format!("{name}/"), opts).map_err(io_err("zip"))?;
+                zip.add_directory(format!("{name}/"), opts)
+                    .map_err(io_err("zip"))?;
                 walk(zip, opts, root, &path)?;
             } else if !(name.ends_with("plan.db-wal") || name.ends_with("plan.db-shm")) {
                 zip.start_file(&name, opts).map_err(io_err("zip"))?;
@@ -316,9 +365,12 @@ pub fn import_zip(root: &Path, zip_path: &Path) -> R<ProjectInfo> {
     let prefix = manifest_entry.trim_end_matches("project.json").to_string();
 
     let manifest: Manifest = {
-        let mut f = archive.by_name(&manifest_entry).map_err(io_err("reading manifest"))?;
+        let mut f = archive
+            .by_name(&manifest_entry)
+            .map_err(io_err("reading manifest"))?;
         let mut s = String::new();
-        f.read_to_string(&mut s).map_err(io_err("reading manifest"))?;
+        f.read_to_string(&mut s)
+            .map_err(io_err("reading manifest"))?;
         serde_json::from_str(&s).map_err(io_err("parsing manifest"))?
     };
     if manifest.schema_version > SCHEMA_VERSION {
@@ -334,15 +386,27 @@ pub fn import_zip(root: &Path, zip_path: &Path) -> R<ProjectInfo> {
 
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(io_err("reading zip"))?;
-        let Some(rel) = entry.enclosed_name() else { continue }; // refuses "../" tricks
+        let Some(rel) = entry.enclosed_name() else {
+            continue;
+        }; // refuses "../" tricks
         let rel = rel.to_string_lossy().replace('\\', "/");
-        let Some(rel) = rel.strip_prefix(&prefix) else { continue };
-        if rel.is_empty() || rel.ends_with("plan.db-wal") || rel.ends_with("plan.db-shm") || rel.starts_with(".trash/") { continue; }
+        let Some(rel) = rel.strip_prefix(&prefix) else {
+            continue;
+        };
+        if rel.is_empty()
+            || rel.ends_with("plan.db-wal")
+            || rel.ends_with("plan.db-shm")
+            || rel.starts_with(".trash/")
+        {
+            continue;
+        }
         let out = dir.join(rel);
         if entry.is_dir() {
             fs::create_dir_all(&out).map_err(io_err("creating folder"))?;
         } else {
-            if let Some(parent) = out.parent() { fs::create_dir_all(parent).map_err(io_err("creating folder"))?; }
+            if let Some(parent) = out.parent() {
+                fs::create_dir_all(parent).map_err(io_err("creating folder"))?;
+            }
             let mut f = File::create(&out).map_err(io_err("writing file"))?;
             io::copy(&mut entry, &mut f).map_err(io_err("writing file"))?;
             f.flush().map_err(io_err("writing file"))?;
