@@ -29,6 +29,7 @@ export const setColourScheme= (scheme)    => invoke("set_colour_scheme", { schem
 export const listLevels = ()               => invoke("list_levels");
 export const importPlan = (srcPath, name)  => invoke("import_plan", { srcPath, name });
 export const setLevelScale = (levelId, cmPerPx) => invoke("set_level_scale", { levelId, cmPerPx });
+export const renameLevel   = (levelId, name)    => invoke("rename_level", { levelId, name });
 
 // ---- pins ----------------------------------------------------------------------------
 export const listPins   = (levelId)                    => invoke("list_pins", { levelId });
@@ -41,6 +42,10 @@ export const deletePin  = (id)                         => invoke("delete_pin", {
 // ---- measurements --------------------------------------------------------------------
 export const listMeasurements = (pinId)       => invoke("list_measurements", { pinId });
 export const setMeasurements  = (pinId, list) => invoke("set_measurements", { pinId, list });
+
+// ---- printed report -------------------------------------------------------------------
+export const reportImage = (path) => invoke("report_image", { path });
+export const planImage   = (path) => invoke("plan_image", { path });
 
 // ---- search --------------------------------------------------------------------------
 export const searchContext = () => invoke("search_context");

@@ -23,6 +23,10 @@ fn err<E: std::fmt::Display>(what: &str) -> impl FnOnce(E) -> String + '_ {
 }
 
 const THUMB_PX: u32 = 400;
+/// Longest side for photos embedded in the printed report: large enough to
+/// recognise a wall and read a label at A4 width, small enough that a project
+/// with a hundred photos still produces a file someone can email.
+const REPORT_PX: u32 = 1400;
 const ALLOWED: [&str; 4] = ["jpg", "jpeg", "png", "webp"];
 
 /// "IMG_2041.JPG" -> "img-2041"
@@ -131,4 +135,50 @@ pub fn with_files(dir: &Path, mut p: db::Photo) -> db::Photo {
         dir.join(&p.thumb_path).display().to_string()
     };
     p
+}
+
+/// A photo re-encoded for the printed report, as a base64 data URI.
+/// Generated on demand rather than stored: the report size is a presentation
+/// choice that may change, and the originals are already kept.
+pub fn report_image(dir: &Path, rel_path: &str) -> R<String> {
+    use base64::Engine as _;
+    let full = dir.join(rel_path);
+    let img = image::open(&full).map_err(err("reading photo"))?;
+    let scaled = if img.width().max(img.height()) > REPORT_PX {
+        img.thumbnail(REPORT_PX, REPORT_PX)
+    } else {
+        img
+    };
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    scaled
+        .to_rgb8()
+        .write_to(&mut bytes, image::ImageFormat::Jpeg)
+        .map_err(err("encoding photo"))?;
+    Ok(format!(
+        "data:image/jpeg;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes.into_inner())
+    ))
+}
+
+/// The floor's plan image as a data URI, so the report is one self-contained
+/// document that prints identically anywhere.
+pub fn plan_image(dir: &Path, rel_path: &str) -> R<String> {
+    use base64::Engine as _;
+    let full = dir.join(rel_path);
+    let bytes = fs::read(&full).map_err(err("reading plan image"))?;
+    let mime = match full
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "png" => "image/png",
+        "webp" => "image/webp",
+        _ => "image/jpeg",
+    };
+    Ok(format!(
+        "data:{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    ))
 }
