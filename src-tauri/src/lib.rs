@@ -56,6 +56,12 @@ fn update_pin(state: State<Db>, id: i64, label: String, notes: String) -> Result
 }
 
 #[tauri::command]
+fn restore_pin(state: State<Db>, pin: db::Pin) -> Result<db::Pin, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    db::restore_pin(&conn, &pin).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn delete_pin(state: State<Db>, id: i64) -> Result<bool, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let n = db::delete_pin(&conn, id).map_err(|e| e.to_string())?;
@@ -89,7 +95,7 @@ pub fn run() {
             app.manage(Db(Mutex::new(conn)));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![list_levels, list_pins, add_pin, update_pin, delete_pin, db_path])
+        .invoke_handler(tauri::generate_handler![list_levels, list_pins, add_pin, update_pin, restore_pin, delete_pin, db_path])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

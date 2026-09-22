@@ -26,5 +26,12 @@
   "panel.notesPlaceholder": "Material, size, distances from reference points, anything you would want to know before drilling…",
   "panel.saving": "Saving…",
   "panel.saved": "Saved",
-  "panel.saveFailed": "Not saved — {msg}"
+  "panel.saveFailed": "Not saved — {msg}",
+  "toolbar.undo": "Undo",
+  "toolbar.redo": "Redo",
+  "history.addPin": "add pin",
+  "history.deletePin": "delete pin",
+  "history.editPin": "edit pin",
+  "status.undone": "Undone: {what}",
+  "status.redone": "Redone: {what}"
 }

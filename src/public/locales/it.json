@@ -26,5 +26,12 @@
   "panel.notesPlaceholder": "Materiale, dimensioni, distanze dai punti di riferimento, tutto ciò che vorresti sapere prima di forare…",
   "panel.saving": "Salvataggio…",
   "panel.saved": "Salvato",
-  "panel.saveFailed": "Non salvato — {msg}"
+  "panel.saveFailed": "Non salvato — {msg}",
+  "toolbar.undo": "Annulla",
+  "toolbar.redo": "Ripeti",
+  "history.addPin": "aggiunta punto",
+  "history.deletePin": "eliminazione punto",
+  "history.editPin": "modifica punto",
+  "status.undone": "Annullato: {what}",
+  "status.redone": "Ripetuto: {what}"
 }
