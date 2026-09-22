@@ -258,3 +258,17 @@ button[aria-pressed="true"]#pin-edit-pos { background: #a85d0c; border-color: #a
 .ctx-item:hover:not(:disabled), .ctx-item:focus-visible { background: var(--accent); color: #fff; outline: none; }
 .ctx-item:disabled { opacity: 0.45; cursor: default; }
 .ctx-sep { height: 1px; background: var(--rule); margin: 4px 6px; }
+
+/* ---- room labels -------------------------------------------------------------------- */
+.plan.drawing { cursor: crosshair; }
+.room-label {
+  background: transparent; border: 0; box-shadow: none; white-space: nowrap;
+  font-size: 13px; font-weight: 600; text-align: center; cursor: pointer;
+  color: var(--ink-2);
+  text-shadow: 0 0 3px var(--paper), 0 0 3px var(--paper), 0 0 4px var(--paper), 0 0 4px var(--paper);
+}
+.room-label:hover { color: var(--accent); }
+.room-label.selected { color: var(--accent); }
+.room-label.moving { opacity: 0.5; outline: 2px dashed #a85d0c; outline-offset: 4px; border-radius: 4px; }
+.room-label .h { display: block; font-weight: 400; font-size: 11px; opacity: 0.8; }
+#room-panel { left: 12px; right: auto; width: min(320px, 36vw); }

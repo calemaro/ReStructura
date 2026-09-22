@@ -205,9 +205,10 @@ fn update_pin(
     label: String,
     notes: String,
     category: String,
+    room_id: Option<i64>,
 ) -> R<db::Pin> {
     with_project_mut(&state, |conn, _| {
-        db::update_pin(conn, id, &label, &notes, &category)
+        db::update_pin(conn, id, &label, &notes, &category, room_id)
             .map_err(s)?
             .ok_or_else(|| format!("pin {id} does not exist"))
     })
@@ -261,6 +262,57 @@ fn set_measurements(
     }
     with_project_mut(&state, |conn, _| {
         db::set_measurements(conn, pin_id, &list).map_err(s)
+    })
+}
+
+// ---------------------------------------------------------------------------
+// rooms
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+fn list_rooms(state: State<AppState>, level_id: i64) -> R<Vec<db::Room>> {
+    with_project(&state, |conn, _| db::list_rooms(conn, level_id).map_err(s))
+}
+
+#[tauri::command]
+fn add_room(
+    state: State<AppState>,
+    level_id: i64,
+    name: String,
+    ceiling_cm: Option<f64>,
+    x: f64,
+    y: f64,
+) -> R<db::Room> {
+    with_project_mut(&state, |conn, _| {
+        db::add_room(conn, level_id, &name, ceiling_cm, x, y).map_err(s)
+    })
+}
+
+#[tauri::command]
+fn update_room(
+    state: State<AppState>,
+    id: i64,
+    name: String,
+    ceiling_cm: Option<f64>,
+    x: f64,
+    y: f64,
+) -> R<db::Room> {
+    with_project_mut(&state, |conn, _| {
+        db::update_room(conn, id, &name, ceiling_cm, x, y)
+            .map_err(s)?
+            .ok_or_else(|| format!("room {id} does not exist"))
+    })
+}
+
+#[tauri::command]
+fn restore_room(state: State<AppState>, room: db::Room) -> R<db::Room> {
+    with_project_mut(&state, |conn, _| db::restore_room(conn, &room).map_err(s))
+}
+
+#[tauri::command]
+fn delete_room(state: State<AppState>, id: i64) -> R<bool> {
+    with_project_mut(&state, |conn, _| {
+        Ok(db::delete_room(conn, id).map_err(s)? > 0)
     })
 }
 
@@ -392,6 +444,11 @@ pub fn run() {
             delete_pin,
             list_measurements,
             set_measurements,
+            list_rooms,
+            add_room,
+            update_room,
+            restore_room,
+            delete_room,
             list_photos,
             add_photos,
             remove_photo,

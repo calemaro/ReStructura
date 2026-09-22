@@ -29,7 +29,7 @@ export const importPlan = (srcPath, name)  => invoke("import_plan", { srcPath, n
 // ---- pins ----------------------------------------------------------------------------
 export const listPins   = (levelId)                    => invoke("list_pins", { levelId });
 export const addPin     = (levelId, x, y, label, notes, category = "other") => invoke("add_pin", { levelId, x, y, label, notes, category });
-export const updatePin  = (id, label, notes, category)  => invoke("update_pin", { id, label, notes, category });
+export const updatePin  = (id, label, notes, category, roomId) => invoke("update_pin", { id, label, notes, category, roomId });
 export const movePin    = (id, x, y)                   => invoke("move_pin", { id, x, y });
 export const restorePin = (pin)                        => invoke("restore_pin", { pin });
 export const deletePin  = (id)                         => invoke("delete_pin", { id });
@@ -37,6 +37,13 @@ export const deletePin  = (id)                         => invoke("delete_pin", {
 // ---- measurements --------------------------------------------------------------------
 export const listMeasurements = (pinId)       => invoke("list_measurements", { pinId });
 export const setMeasurements  = (pinId, list) => invoke("set_measurements", { pinId, list });
+
+// ---- rooms ---------------------------------------------------------------------------
+export const listRooms   = (levelId)                      => invoke("list_rooms", { levelId });
+export const addRoom     = (levelId, name, ceilingCm, x, y) => invoke("add_room", { levelId, name, ceilingCm, x, y });
+export const updateRoom  = (id, name, ceilingCm, x, y)    => invoke("update_room", { id, name, ceilingCm, x, y });
+export const restoreRoom = (room)                         => invoke("restore_room", { room });
+export const deleteRoom  = (id)                           => invoke("delete_room", { id });
 
 // ---- photos --------------------------------------------------------------------------
 export const listPhotos      = (pinId)        => invoke("list_photos", { pinId });
