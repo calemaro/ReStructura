@@ -45,6 +45,16 @@
 
     <main class="workspace">
       <div id="plan" class="plan"></div>
+      <!-- Legend: category colours for the current scheme; click to filter -->
+      <aside id="legend" class="legend" hidden>
+        <div class="legend-head">
+          <strong data-i18n="legend.title"></strong>
+          <label class="legend-scheme"><span data-i18n="legend.scheme"></span><select id="scheme-select"></select></label>
+        </div>
+        <ul id="legend-list" class="legend-list"></ul>
+        <p class="legend-hint" data-i18n="legend.hint"></p>
+      </aside>
+
       <!-- Empty project: the two ways to get a first plan -->
       <section id="plan-empty" class="plan-empty" hidden>
         <div class="start">
@@ -71,6 +81,8 @@
           <button id="panel-close" type="button" class="icon-btn" data-i18n-attr="title:panel.close,aria-label:panel.close">×</button>
         </div>
         <dl class="panel-body">
+          <dt><label for="pin-category" data-i18n="panel.category"></label></dt>
+          <dd class="cat-row"><span id="pin-swatch" class="swatch"></span><select id="pin-category"></select></dd>
           <dt><label for="pin-label" data-i18n="panel.label"></label></dt>
           <dd><input id="pin-label" type="text" autocomplete="off" maxlength="120" data-i18n-attr="placeholder:panel.labelPlaceholder"></dd>
           <dt><label for="pin-notes" data-i18n="panel.notes"></label></dt>

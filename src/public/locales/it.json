@@ -67,5 +67,21 @@
   "start.importHint": "PNG o JPEG — una scansione, una foto del disegno o un'esportazione dell'architetto.",
   "start.draw": "Disegna la planimetria nell'editor",
   "start.drawHint": "Muri come linee, porte e finestre come simboli standard. In una versione successiva.",
-  "start.soon": "Prossimamente"
+  "start.soon": "Prossimamente",
+  "cat.gas": "Gas",
+  "cat.electric": "Energia elettrica",
+  "cat.data": "Dati · telefono · TV",
+  "cat.alarm": "Allarme / sicurezza",
+  "cat.intercom": "Citofono",
+  "cat.multimedia": "Multimedia / domotica",
+  "cat.cold_water": "Acqua fredda",
+  "cat.hot_water": "Acqua calda / riscaldamento",
+  "cat.drain": "Scarico / fognatura",
+  "cat.other": "Altro",
+  "panel.category": "Categoria",
+  "legend.title": "Legenda",
+  "legend.scheme": "Convenzione colori",
+  "legend.hint": "Clicca una categoria per mostrare o nascondere i suoi punti",
+  "scheme.it": "Europea",
+  "scheme.apwa": "APWA (USA)"
 }

@@ -38,8 +38,13 @@ pub struct Pin {
     pub y: f64,
     pub label: String,
     pub notes: String,
+    /// Semantic category id ("gas", "cold_water", …). The colour is NOT stored:
+    /// the project's colour scheme maps category -> colour at display time.
+    #[serde(default = "default_category")]
+    pub category: String,
     pub created_at: String,
 }
+fn default_category() -> String { "other".into() }
 
 /// Open (or create) the database file and make sure the schema exists.
 ///
@@ -71,6 +76,7 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             y           REAL    NOT NULL,
             label       TEXT    NOT NULL DEFAULT '',
             notes       TEXT    NOT NULL DEFAULT '',
+            category    TEXT    NOT NULL DEFAULT 'other',
             created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
          );
          CREATE TABLE IF NOT EXISTS photos (
@@ -87,7 +93,35 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
          CREATE INDEX IF NOT EXISTS pins_by_level ON pins(level_id);",
     )?;
 
+    migrate(&conn)?;
     Ok(conn)
+}
+
+/// Bring an older database up to the current layout.
+///
+/// SQLite keeps a small integer in the file header (`PRAGMA user_version`)
+/// that we use as the schema version. Each step below upgrades one version
+/// and is applied in order, so a database from any earlier release ends up
+/// current. `CREATE TABLE IF NOT EXISTS` above already handles brand-new
+/// files, which is why a fresh database starts at the latest version.
+const DB_VERSION: i64 = 2;
+
+fn migrate(conn: &Connection) -> rusqlite::Result<()> {
+    let mut v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    if v == 0 {
+        // Version 0 means "created before versioning began" or "just created".
+        // Tell the two apart by whether the category column already exists.
+        let has_category: bool = conn
+            .prepare("SELECT 1 FROM pragma_table_info('pins') WHERE name = 'category'")?
+            .exists([])?;
+        v = if has_category { DB_VERSION } else { 1 };
+    }
+    if v < 2 {
+        conn.execute_batch("ALTER TABLE pins ADD COLUMN category TEXT NOT NULL DEFAULT 'other';")?;
+        v = 2;
+    }
+    conn.pragma_update(None, "user_version", v)?;
+    Ok(())
 }
 
 /// Used by the demo project only: one level with the sample plan and one example pin.
@@ -98,14 +132,15 @@ pub fn seed_demo(conn: &Connection, image_path: &str) -> rusqlite::Result<()> {
     )?;
     let level_id = conn.last_insert_rowid();
     conn.execute(
-        "INSERT INTO pins (level_id, x, y, label, notes) VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO pins (level_id, x, y, label, notes, category) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
             level_id,
             1010.0,
             300.0,
             "Cold water riser",
             "Copper 22 mm, runs vertically inside the kitchen wall. \
-             Centre is 38 cm from the door frame, joint at 112 cm above finished floor."
+             Centre is 38 cm from the door frame, joint at 112 cm above finished floor.",
+            "cold_water"
         ],
     )?;
     Ok(())
@@ -130,7 +165,7 @@ fn row_to_level(r: &rusqlite::Row<'_>) -> rusqlite::Result<Level> {
 
 pub fn list_pins(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Pin>> {
     let mut stmt = conn.prepare(
-        "SELECT id, level_id, x, y, label, notes, created_at FROM pins WHERE level_id = ?1 ORDER BY id",
+        "SELECT id, level_id, x, y, label, notes, category, created_at FROM pins WHERE level_id = ?1 ORDER BY id",
     )?;
     let rows = stmt.query_map([level_id], row_to_pin)?;
     rows.collect()
@@ -138,17 +173,17 @@ pub fn list_pins(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Pin>>
 
 pub fn get_pin(conn: &Connection, id: i64) -> rusqlite::Result<Option<Pin>> {
     conn.query_row(
-        "SELECT id, level_id, x, y, label, notes, created_at FROM pins WHERE id = ?1",
+        "SELECT id, level_id, x, y, label, notes, category, created_at FROM pins WHERE id = ?1",
         [id],
         row_to_pin,
     )
     .optional() // a missing row is `None`, not an error
 }
 
-pub fn add_pin(conn: &Connection, level_id: i64, x: f64, y: f64, label: &str, notes: &str) -> rusqlite::Result<Pin> {
+pub fn add_pin(conn: &Connection, level_id: i64, x: f64, y: f64, label: &str, notes: &str, category: &str) -> rusqlite::Result<Pin> {
     conn.execute(
-        "INSERT INTO pins (level_id, x, y, label, notes) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![level_id, x, y, label, notes],
+        "INSERT INTO pins (level_id, x, y, label, notes, category) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![level_id, x, y, label, notes, category],
     )?;
     let id = conn.last_insert_rowid();
     // Read it back so the caller gets the server-side created_at, not a guess.
@@ -157,10 +192,10 @@ pub fn add_pin(conn: &Connection, level_id: i64, x: f64, y: f64, label: &str, no
 
 /// Change what a pin says. Position is deliberately not editable here — moving
 /// a pin is a separate gesture (drag) with its own command later.
-pub fn update_pin(conn: &Connection, id: i64, label: &str, notes: &str) -> rusqlite::Result<Option<Pin>> {
+pub fn update_pin(conn: &Connection, id: i64, label: &str, notes: &str, category: &str) -> rusqlite::Result<Option<Pin>> {
     conn.execute(
-        "UPDATE pins SET label = ?1, notes = ?2 WHERE id = ?3",
-        params![label, notes, id],
+        "UPDATE pins SET label = ?1, notes = ?2, category = ?3 WHERE id = ?4",
+        params![label, notes, category, id],
     )?;
     get_pin(conn, id)
 }
@@ -170,9 +205,9 @@ pub fn update_pin(conn: &Connection, id: i64, label: &str, notes: &str) -> rusql
 /// referenced it (photos, later) lines up again.
 pub fn restore_pin(conn: &Connection, pin: &Pin) -> rusqlite::Result<Pin> {
     conn.execute(
-        "INSERT OR REPLACE INTO pins (id, level_id, x, y, label, notes, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        params![pin.id, pin.level_id, pin.x, pin.y, pin.label, pin.notes, pin.created_at],
+        "INSERT OR REPLACE INTO pins (id, level_id, x, y, label, notes, category, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![pin.id, pin.level_id, pin.x, pin.y, pin.label, pin.notes, pin.category, pin.created_at],
     )?;
     Ok(get_pin(conn, pin.id)?.expect("pin just restored must exist"))
 }
@@ -189,6 +224,7 @@ fn row_to_pin(r: &rusqlite::Row<'_>) -> rusqlite::Result<Pin> {
         y: r.get(3)?,
         label: r.get(4)?,
         notes: r.get(5)?,
-        created_at: r.get(6)?,
+        category: r.get(6)?,
+        created_at: r.get(7)?,
     })
 }

@@ -20,6 +20,7 @@ export const deleteProject  = (slug)      => invoke("delete_project", { slug });
 export const exportProject  = (slug, dest)=> invoke("export_project", { slug, dest });
 export const importProject  = (zipPath)   => invoke("import_project", { zipPath });
 export const projectsDir    = ()          => invoke("projects_dir");
+export const setColourScheme= (scheme)    => invoke("set_colour_scheme", { scheme });
 
 // ---- levels --------------------------------------------------------------------------
 export const listLevels = ()               => invoke("list_levels");
@@ -27,8 +28,8 @@ export const importPlan = (srcPath, name)  => invoke("import_plan", { srcPath, n
 
 // ---- pins ----------------------------------------------------------------------------
 export const listPins   = (levelId)                    => invoke("list_pins", { levelId });
-export const addPin     = (levelId, x, y, label, notes) => invoke("add_pin", { levelId, x, y, label, notes });
-export const updatePin  = (id, label, notes)           => invoke("update_pin", { id, label, notes });
+export const addPin     = (levelId, x, y, label, notes, category = "other") => invoke("add_pin", { levelId, x, y, label, notes, category });
+export const updatePin  = (id, label, notes, category)  => invoke("update_pin", { id, label, notes, category });
 export const restorePin = (pin)                        => invoke("restore_pin", { pin });
 export const deletePin  = (id)                         => invoke("delete_pin", { id });
 
