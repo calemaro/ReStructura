@@ -19,6 +19,7 @@ import * as history from "./history.js";
 import * as projects from "./projects.js";
 import { t, setLanguage, detectLanguage, currentLanguage, SUPPORTED } from "./i18n.js";
 import { setStatus, showError, askText } from "./ui.js";
+import { CATEGORIES, SCHEMES, colourFor, pinIcon } from "./categories.js";
 
 // ---- helpers: image pixels <-> Leaflet coordinates ----------------------------------
 let imageHeight = 0;
@@ -34,6 +35,8 @@ let bounds = null;
 let pins = new Map();            // pin id -> { pin, marker }
 let selectedId = null;           // pin open in the panel
 let placing = false;             // "Add pin" mode: next click on the plan creates a pin
+let scheme = "it";               // the project's colour scheme ("it" | "apwa")
+const hiddenCats = new Set();    // categories switched off in the legend
 
 // ---- DOM -----------------------------------------------------------------------------
 const $ = (sel) => document.querySelector(sel);
@@ -46,7 +49,16 @@ const levelSelect = $("#level-select");
 // ---- pin panel -----------------------------------------------------------------------
 const labelInput = $("#pin-label");
 const notesInput = $("#pin-notes");
+const catSelect = $("#pin-category");
+const swatchEl = $("#pin-swatch");
 const saveStateEl = $("#pin-save-state");
+
+function fillCategorySelect() {
+  const v = catSelect.value;
+  catSelect.innerHTML = "";
+  for (const c of CATEGORIES) catSelect.add(new Option(t("cat." + c), c));
+  if (v) catSelect.value = v;
+}
 
 function showPin(id, { focus = false } = {}) {
   const entry = pins.get(id);
@@ -55,13 +67,21 @@ function showPin(id, { focus = false } = {}) {
   selectedId = id;
   labelInput.value = pin.label;
   notesInput.value = pin.notes;
+  catSelect.value = pin.category;
+  swatchEl.style.background = colourFor(scheme, pin.category);
+  for (const [pid, e] of pins) e.marker.setIcon(pinIcon(colourFor(scheme, e.pin.category), { selected: pid === id }));
   $("#pin-position").textContent = t("panel.positionValue", { x: Math.round(pin.x), y: Math.round(pin.y) });
   $("#pin-created").textContent = new Date(pin.createdAt).toLocaleString(currentLanguage());
   setSaveState("");
   panelEl.hidden = false;
   if (focus) { labelInput.focus(); labelInput.select(); }
 }
-function hidePanel() { flushSave(); panelEl.hidden = true; selectedId = null; }
+function hidePanel() {
+  flushSave();
+  panelEl.hidden = true;
+  if (selectedId != null) pins.get(selectedId)?.marker.setIcon(pinIcon(colourFor(scheme, pins.get(selectedId).pin.category)));
+  selectedId = null;
+}
 $("#panel-close").addEventListener("click", hidePanel);
 
 function setSaveState(kind, msg) {
@@ -89,18 +109,25 @@ async function flushSave() {
   dirtyId = null;
   const entry = pins.get(id);
   if (!entry) return;
-  const before = { label: entry.pin.label, notes: entry.pin.notes };
-  const after = { label: labelInput.value.trim(), notes: notesInput.value };
-  if (before.label === after.label && before.notes === after.notes) { setSaveState(""); return; }
+  const before = { label: entry.pin.label, notes: entry.pin.notes, category: entry.pin.category };
+  const after = { label: labelInput.value.trim(), notes: notesInput.value, category: catSelect.value };
+  if (before.label === after.label && before.notes === after.notes && before.category === after.category) { setSaveState(""); return; }
 
+  lastCategory = after.category;
   const apply = async (values) => {
-    const updated = await api.updatePin(id, values.label, values.notes);
+    const updated = await api.updatePin(id, values.label, values.notes, values.category);
     const e = pins.get(id);
     if (!e) return;
     e.pin = updated;
     e.marker.options.title = updated.label;
     e.marker.getElement()?.setAttribute("title", updated.label);
-    if (selectedId === id) { labelInput.value = updated.label; notesInput.value = updated.notes; }
+    e.marker.setIcon(pinIcon(colourFor(scheme, updated.category), { selected: selectedId === id }));
+    applyFilter();
+    if (selectedId === id) {
+      labelInput.value = updated.label; notesInput.value = updated.notes; catSelect.value = updated.category;
+      swatchEl.style.background = colourFor(scheme, updated.category);
+    }
+    renderLegend();
   };
   const cmd = {
     label: t("history.editPin"),
@@ -120,6 +147,7 @@ async function flushSave() {
 }
 labelInput.addEventListener("input", scheduleSave);
 notesInput.addEventListener("input", scheduleSave);
+catSelect.addEventListener("change", () => { swatchEl.style.background = colourFor(scheme, catSelect.value); scheduleSave(); flushSave(); });
 labelInput.addEventListener("blur", flushSave);
 notesInput.addEventListener("blur", flushSave);
 window.addEventListener("beforeunload", flushSave);
@@ -149,16 +177,59 @@ $("#pin-delete").addEventListener("click", async () => {
 
 // ---- markers -------------------------------------------------------------------------
 function addMarker(pin) {
-  const marker = L.marker(toLatLng(pin.x, pin.y), { title: pin.label })
+  const marker = L.marker(toLatLng(pin.x, pin.y), { title: pin.label, icon: pinIcon(colourFor(scheme, pin.category)) })
     .addTo(map)
     .on("click", () => { flushSave(); showPin(pin.id); });
   pins.set(pin.id, { pin, marker });
+  applyFilter(); renderLegend();
   return marker;
 }
 function removeMarker(id) {
   pins.get(id)?.marker.remove();
   pins.delete(id);
+  renderLegend();
 }
+
+// ---- legend: colours for the current scheme; click a row to hide/show that category
+const legendEl = $("#legend");
+const legendList = $("#legend-list");
+const schemeSelect = $("#scheme-select");
+
+function applyFilter() {
+  for (const { pin, marker } of pins.values()) {
+    const off = hiddenCats.has(pin.category);
+    marker.getElement()?.classList.toggle("dimmed", off);
+    marker.setOpacity(off ? 0.15 : 1);
+  }
+}
+function renderLegend() {
+  legendList.innerHTML = "";
+  const counts = {};
+  for (const { pin } of pins.values()) counts[pin.category] = (counts[pin.category] ?? 0) + 1;
+  for (const c of CATEGORIES) {
+    const li = document.createElement("li");
+    li.classList.toggle("off", hiddenCats.has(c));
+    const sw = document.createElement("span"); sw.className = "swatch"; sw.style.background = colourFor(scheme, c);
+    const name = document.createElement("span"); name.textContent = t("cat." + c);
+    const n = document.createElement("span"); n.className = "count"; n.textContent = counts[c] ?? "";
+    li.append(sw, name, n);
+    li.onclick = () => { hiddenCats.has(c) ? hiddenCats.delete(c) : hiddenCats.add(c); li.classList.toggle("off"); applyFilter(); };
+    legendList.append(li);
+  }
+  schemeSelect.innerHTML = "";
+  for (const k of Object.keys(SCHEMES)) schemeSelect.add(new Option(t("scheme." + k), k));
+  schemeSelect.value = scheme;
+}
+schemeSelect.addEventListener("change", async () => {
+  try {
+    project = await api.setColourScheme(schemeSelect.value);
+    scheme = project.colourScheme;
+    for (const [pid, e] of pins) e.marker.setIcon(pinIcon(colourFor(scheme, e.pin.category), { selected: pid === selectedId }));
+    applyFilter();
+    if (selectedId != null) swatchEl.style.background = colourFor(scheme, pins.get(selectedId).pin.category);
+    renderLegend();
+  } catch (err) { showError(err); }
+});
 
 // ---- "Add pin" mode ------------------------------------------------------------------
 function setPlacing(on) {
@@ -170,6 +241,7 @@ function setPlacing(on) {
 }
 addBtn.addEventListener("click", () => setPlacing(!placing));
 
+let lastCategory = "other";      // a run of similar pins should not need re-picking the category
 async function createPinAt(latlng) {
   const { x, y } = toPixel(latlng);
   let created = null;                                  // remembered so redo keeps the same id
@@ -180,7 +252,7 @@ async function createPinAt(latlng) {
       // Naming a pin right after placing it is part of placing it: absorb those edits.
       merge(next) { if (!created || next.pinId !== created.id || !next.after) return false; created = { ...created, ...next.after }; return true; },
       do: async () => {
-        created = created ? await api.restorePin(created) : await api.addPin(level.id, x, y, "", "");
+        created = created ? await api.restorePin(created) : await api.addPin(level.id, x, y, "", "", lastCategory);
         addMarker(created);
         setPlacing(false);
         showPin(created.id, { focus: true });
@@ -238,6 +310,8 @@ for (const sel of langSelects) {
 }
 document.addEventListener("languagechange", (e) => {
   for (const sel of langSelects) sel.value = e.detail.lang;
+  fillCategorySelect();
+  if (level) renderLegend();
   if (selectedId != null && dirtyId == null) showPin(selectedId);
   setPlacing(placing);
 });
@@ -249,7 +323,7 @@ function showScreen(which) {
   $("#plan-bar").hidden = !plan;
   $("#status").hidden = !plan;
   planEl.hidden = !plan;
-  if (!plan) { panelEl.hidden = true; emptyEl.hidden = true; }
+  if (!plan) { panelEl.hidden = true; emptyEl.hidden = true; legendEl.hidden = true; }
 }
 
 // ---- levels --------------------------------------------------------------------------
@@ -282,6 +356,7 @@ async function showLevel(lvl) {
   level = lvl;
   renderLevelSelect();
   emptyEl.hidden = !!lvl;
+  legendEl.hidden = !lvl;
   addBtn.disabled = !lvl;
   if (!lvl) { setStatus(t("start.title")); return 0; }
 
@@ -331,6 +406,8 @@ $("#start-import").addEventListener("click", importPlanFlow);
 // ---- projects ------------------------------------------------------------------------
 async function onProjectOpened(p) {
   project = p;
+  scheme = p.colourScheme || "it";
+  hiddenCats.clear();
   $("#project-name").textContent = p.name;
   showScreen("plan");
   levels = await api.listLevels();
@@ -344,6 +421,7 @@ async function main() {
   const lang = detectLanguage();
   await setLanguage(lang);           // fills every data-i18n element and fires languagechange
   setPlacing(false);
+  fillCategorySelect();
   addBtn.disabled = true;
   showScreen("menu");
   projects.init(onProjectOpened, () => showScreen("menu"));

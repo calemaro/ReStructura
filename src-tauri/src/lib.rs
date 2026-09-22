@@ -125,6 +125,20 @@ fn import_project(state: State<AppState>, zip_path: String) -> R<ProjectInfo> {
     projects::import_zip(&state.projects_dir, Path::new(&zip_path))
 }
 
+/// Per-project setting: which convention maps categories to marker colours ("it" or "apwa").
+#[tauri::command]
+fn set_colour_scheme(state: State<AppState>, scheme: String) -> R<projects::ProjectInfo> {
+    if !["it", "apwa"].contains(&scheme.as_str()) {
+        return Err(format!("unknown colour scheme {scheme}"));
+    }
+    with_project(&state, |_, dir| {
+        let mut m = projects::read_manifest(dir)?;
+        m.colour_scheme = scheme.clone();
+        projects::write_manifest(dir, &m)?;
+        projects::info(dir)
+    })
+}
+
 #[tauri::command]
 fn projects_dir(state: State<AppState>) -> String {
     state.projects_dir.display().to_string()
@@ -160,14 +174,14 @@ fn list_pins(state: State<AppState>, level_id: i64) -> R<Vec<db::Pin>> {
 }
 
 #[tauri::command]
-fn add_pin(state: State<AppState>, level_id: i64, x: f64, y: f64, label: String, notes: String) -> R<db::Pin> {
-    with_project_mut(&state, |conn, _| db::add_pin(conn, level_id, x, y, &label, &notes).map_err(s))
+fn add_pin(state: State<AppState>, level_id: i64, x: f64, y: f64, label: String, notes: String, category: String) -> R<db::Pin> {
+    with_project_mut(&state, |conn, _| db::add_pin(conn, level_id, x, y, &label, &notes, &category).map_err(s))
 }
 
 #[tauri::command]
-fn update_pin(state: State<AppState>, id: i64, label: String, notes: String) -> R<db::Pin> {
+fn update_pin(state: State<AppState>, id: i64, label: String, notes: String, category: String) -> R<db::Pin> {
     with_project_mut(&state, |conn, _| {
-        db::update_pin(conn, id, &label, &notes).map_err(s)?.ok_or_else(|| format!("pin {id} does not exist"))
+        db::update_pin(conn, id, &label, &notes, &category).map_err(s)?.ok_or_else(|| format!("pin {id} does not exist"))
     })
 }
 
@@ -209,7 +223,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             list_projects, create_project, open_project, current_project, close_project, delete_project,
-            export_project, import_project, projects_dir,
+            export_project, import_project, projects_dir, set_colour_scheme,
             list_levels, import_plan,
             list_pins, add_pin, update_pin, restore_pin, delete_pin,
         ])

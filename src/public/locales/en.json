@@ -67,5 +67,21 @@
   "start.importHint": "PNG or JPEG — a scan, a photo of the drawing, or an export from your architect.",
   "start.draw": "Draw the plan in the editor",
   "start.drawHint": "Walls as lines, doors and windows as standard symbols. Coming in a later version.",
-  "start.soon": "Coming later"
+  "start.soon": "Coming later",
+  "cat.gas": "Gas",
+  "cat.electric": "Electric power",
+  "cat.data": "Data · telephone · TV",
+  "cat.alarm": "Alarm / security",
+  "cat.intercom": "Intercom",
+  "cat.multimedia": "Multimedia / home automation",
+  "cat.cold_water": "Cold water",
+  "cat.hot_water": "Hot water / heating",
+  "cat.drain": "Drain / sewer",
+  "cat.other": "Other",
+  "panel.category": "Category",
+  "legend.title": "Legend",
+  "legend.scheme": "Colour scheme",
+  "legend.hint": "Click a category to show or hide its pins",
+  "scheme.it": "European",
+  "scheme.apwa": "APWA (US)"
 }
