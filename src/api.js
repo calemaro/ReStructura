@@ -39,6 +39,9 @@ export const deletePin  = (id)                         => invoke("delete_pin", {
 export const listMeasurements = (pinId)       => invoke("list_measurements", { pinId });
 export const setMeasurements  = (pinId, list) => invoke("set_measurements", { pinId, list });
 
+// ---- search --------------------------------------------------------------------------
+export const searchContext = () => invoke("search_context");
+
 // ---- rulers (measurements kept on the plan) -------------------------------------------
 export const listRulers   = (levelId)                => invoke("list_rulers", { levelId });
 export const addRuler     = (levelId, x1, y1, x2, y2) => invoke("add_ruler", { levelId, x1, y1, x2, y2 });

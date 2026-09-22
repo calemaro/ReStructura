@@ -70,7 +70,10 @@ function fillCategorySelect() {
 function refreshIcons() {
   for (const [pid, e] of pins) {
     e.marker.setIcon(pinIcon(colourFor(scheme, e.pin.category), { selected: selection.has(pid) }));
-    if (pid === editingId) e.marker.getElement()?.classList.add("editing");
+    const el = e.marker.getElement();
+    if (pid === editingId) el?.classList.add("editing");
+    // a running search fades everything it did not match
+    el?.classList.toggle("faded", !!searchMatchIds && !searchMatchIds.has(pid));
   }
   applyFilter();
 }
@@ -920,6 +923,160 @@ function reportPinDistance() {
   return true;
 }
 
+// ---- search ----------------------------------------------------------------------------
+// Scope is the open project: every floor of it, nothing outside it. Matching pins are
+// highlighted on the plan and the rest are faded, so the search doubles as a filter.
+// All the pins of a personal renovation fit comfortably in memory, so the whole context
+// is fetched once and filtered here — no query per keystroke.
+const searchPanelEl = $("#search-panel");
+const searchInput = $("#search-input");
+const searchResults = $("#search-results");
+let searchContext = [];          // every pin in the project with its floor, room and counts
+let searchActive = false;
+let searchMatchIds = null;       // ids matching on the CURRENT floor, or null when not searching
+
+const norm = (t) => String(t ?? "").toLowerCase();
+function highlight(text, needle) {
+  const s = String(text ?? "");
+  if (!needle) return escapeHtml(s);
+  const i = norm(s).indexOf(needle);
+  if (i < 0) return escapeHtml(s);
+  return `${escapeHtml(s.slice(0, i))}<mark>${escapeHtml(s.slice(i, i + needle.length))}</mark>${escapeHtml(s.slice(i + needle.length))}`;
+}
+/** A short piece of the notes around the match, so the result shows why it matched. */
+function snippet(text, needle, span = 70) {
+  const s = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  const i = needle ? norm(s).indexOf(needle) : -1;
+  if (i < 0) return escapeHtml(s.length > span ? s.slice(0, span) + "…" : s);
+  const from = Math.max(0, i - 25);
+  const cut = s.slice(from, from + span);
+  return (from > 0 ? "…" : "") + highlight(cut, needle) + (from + span < s.length ? "…" : "");
+}
+
+async function openSearch() {
+  if (!project) return;
+  hidePanel(); hideRoomPanel();
+  searchActive = true;
+  searchPanelEl.hidden = false;
+  try { searchContext = await api.searchContext(); } catch (err) { showError(err); return; }
+  fillSearchFilters();
+  runSearch();
+  searchInput.focus();
+  searchInput.select();
+}
+function closeSearch() {
+  searchActive = false;
+  searchPanelEl.hidden = true;
+  searchMatchIds = null;
+  refreshIcons();
+  setStatus(t("status.ready"));
+}
+$("#btn-search").addEventListener("click", () => (searchActive ? closeSearch() : openSearch()));
+$("#search-close").addEventListener("click", closeSearch);
+
+function fillSearchFilters() {
+  const floorSel = $("#filter-floor"), catSel = $("#filter-category"), roomSel = $("#filter-room");
+  const keep = { f: floorSel.value, c: catSel.value, r: roomSel.value };
+  floorSel.innerHTML = ""; catSel.innerHTML = ""; roomSel.innerHTML = "";
+  floorSel.add(new Option(t("search.any"), ""));
+  for (const l of levels) floorSel.add(new Option(l.name, String(l.id)));
+  catSel.add(new Option(t("search.any"), ""));
+  for (const c of CATEGORIES) catSel.add(new Option(t("cat." + c), c));
+  roomSel.add(new Option(t("search.any"), ""));
+  const seen = new Set();
+  for (const h of searchContext) {
+    if (h.roomName && !seen.has(h.roomName)) { seen.add(h.roomName); roomSel.add(new Option(h.roomName, h.roomName)); }
+  }
+  floorSel.value = keep.f; catSel.value = keep.c; roomSel.value = keep.r;
+}
+
+function runSearch() {
+  const q = norm(searchInput.value.trim());
+  const fFloor = $("#filter-floor").value;
+  const fCat = $("#filter-category").value;
+  const fRoom = $("#filter-room").value;
+  const fPhotos = $("#filter-photos").checked;
+  const fMeas = $("#filter-measurements").checked;
+
+  const hits = searchContext.filter((h) => {
+    if (fFloor && String(h.levelId) !== fFloor) return false;
+    if (fCat && h.pin.category !== fCat) return false;
+    if (fRoom && h.roomName !== fRoom) return false;
+    if (fPhotos && h.photoCount === 0) return false;
+    if (fMeas && h.measurementCount === 0) return false;
+    if (!q) return true;
+    return norm(h.pin.label).includes(q) || norm(h.pin.notes).includes(q)
+        || norm(h.roomName).includes(q) || norm(h.captions).includes(q);
+  });
+
+  $("#search-count").textContent = t("search.results", { n: hits.length, total: searchContext.length });
+  searchResults.innerHTML = "";
+  if (!hits.length) {
+    const li = document.createElement("li");
+    li.className = "chooser-empty"; li.textContent = t("search.none");
+    searchResults.append(li);
+  }
+  for (const h of hits) {
+    const li = document.createElement("li");
+    const dot = document.createElement("span");
+    dot.className = "dot"; dot.style.background = colourFor(scheme, h.pin.category);
+    const label = document.createElement("div");
+    label.className = "r-label";
+    label.innerHTML = h.pin.label ? highlight(h.pin.label, q) : `<em>${escapeHtml(t("search.noLabel"))}</em>`;
+    const meta = document.createElement("div");
+    meta.className = "r-meta";
+    const bits = [h.levelName, t("cat." + h.pin.category)];
+    if (h.roomName) bits.push(t("search.inRoom", { room: h.roomName }));
+    if (h.photoCount) bits.push(t("search.photos", { n: h.photoCount }));
+    if (h.measurementCount) bits.push(t("search.measurements", { n: h.measurementCount }));
+    meta.textContent = bits.join(" · ");
+    li.append(dot, label, meta);
+    // show the matching text when the match was not in the label
+    if (q && !norm(h.pin.label).includes(q)) {
+      const sn = document.createElement("div");
+      sn.className = "r-snippet";
+      if (norm(h.pin.notes).includes(q)) sn.innerHTML = `${escapeHtml(t("search.matchNotes"))}: ${snippet(h.pin.notes, q)}`;
+      else if (norm(h.captions).includes(q)) sn.innerHTML = `${escapeHtml(t("search.matchCaption"))}: ${snippet(h.captions, q)}`;
+      else if (norm(h.roomName).includes(q)) sn.innerHTML = `${escapeHtml(t("search.matchRoom"))}: ${highlight(h.roomName, q)}`;
+      if (sn.innerHTML) li.append(sn);
+    }
+    li.onclick = () => goToHit(h);
+    searchResults.append(li);
+  }
+
+  // highlight on the plan: matches stay, everything else fades
+  const anyFilter = q || fCat || fRoom || fPhotos || fMeas || fFloor;
+  searchMatchIds = anyFilter ? new Set(hits.filter((h) => h.levelId === level?.id).map((h) => h.pin.id)) : null;
+  refreshIcons();
+}
+for (const el of [searchInput, $("#filter-floor"), $("#filter-category"), $("#filter-room"), $("#filter-photos"), $("#filter-measurements")]) {
+  el.addEventListener("input", runSearch);
+  el.addEventListener("change", runSearch);
+}
+$("#filter-clear").addEventListener("click", () => {
+  searchInput.value = "";
+  for (const id of ["filter-floor", "filter-category", "filter-room"]) $("#" + id).value = "";
+  $("#filter-photos").checked = $("#filter-measurements").checked = false;
+  runSearch();
+});
+
+/** Jump to a result: switch floor if needed, centre on it, open its panel. */
+async function goToHit(h) {
+  try {
+    if (h.levelId !== level?.id) {
+      const lvl = levels.find((l) => l.id === h.levelId);
+      if (lvl) await showLevel(lvl);
+      runSearch();                       // recompute which matches are on this floor
+    }
+    const entry = pins.get(h.pin.id);
+    if (!entry) return;
+    map.setView(toLatLng(h.pin.x, h.pin.y), Math.max(map.getZoom(), 0));
+    showPin(h.pin.id);
+    searchPanelEl.hidden = false;        // showPin hides panels; the search list stays
+  } catch (err) { showError(err); }
+}
+
 // ---- right-click menus (#11): drawn by the app, same actions as buttons and keys ------
 // (A native GTK popup opened from JavaScript is dismissed instantly on Wayland — it
 // needs the originating input event, which is gone by the time the call reaches Rust.
@@ -1138,6 +1295,7 @@ document.addEventListener("keydown", (e) => {
     }
   }
   if (e.key === "Escape") {
+    if (searchActive && (document.activeElement === searchInput || searchPanelEl.contains(document.activeElement))) { closeSearch(); return; }
     if (picking) { stopPicking(); return; }
     if (selectedRulerId != null) { selectedRulerId = null; renderRulers(); setStatus(t("status.ready")); return; }
     if (placingRoom) { setPlacingRoom(false); return; }
@@ -1149,6 +1307,7 @@ document.addEventListener("keydown", (e) => {
   }
   const mod = e.ctrlKey || e.metaKey;
   const k = e.key.toLowerCase();
+  if (mod && k === "f") { e.preventDefault(); searchActive ? searchInput.focus() : openSearch(); return; }
   if (!history.focusIsInTextField() && level) {
     if ((e.key === "Delete" || e.key === "Backspace") && selectedRulerId != null) { e.preventDefault(); deleteRulerFlow(selectedRulerId); return; }
     if ((e.key === "Delete" || e.key === "Backspace") && selection.size) { e.preventDefault(); deleteSelection(); return; }
@@ -1184,6 +1343,7 @@ document.addEventListener("languagechange", (e) => {
   fillPinRoomSelect();
   renderScale();
   renderRulers();
+  if (searchActive) { fillSearchFilters(); runSearch(); }
   setPlacing(placing);
 });
 
@@ -1193,6 +1353,7 @@ function showScreen(which) {
   $("#menu-bar").hidden = plan;
   $("#plan-bar").hidden = !plan;
   $("#statusbar").hidden = !plan;
+  if (!plan) { searchPanelEl.hidden = true; searchActive = false; searchMatchIds = null; }
   planEl.hidden = !plan;
   if (!plan) { panelEl.hidden = true; roomPanelEl.hidden = true; emptyEl.hidden = true; legendEl.hidden = true; }
 }
@@ -1226,7 +1387,8 @@ async function showLevel(lvl) {
   if (map) { map.remove(); map = null; }
   pins = new Map();
   selection.clear(); editingId = null; cursorLatLng = null;
-  stopPicking(); setPlacingRoom(false); movingRoomId = null; rulers = []; selectedRulerId = null; rulerLayer = null; rooms = []; selectedRoomId = null; roomPanelEl.hidden = true;
+  stopPicking(); setPlacingRoom(false); movingRoomId = null; rulers = []; selectedRulerId = null; rulerLayer = null;
+  searchMatchIds = null; rooms = []; selectedRoomId = null; roomPanelEl.hidden = true;
   level = lvl;
   renderLevelSelect();
   emptyEl.hidden = !!lvl;

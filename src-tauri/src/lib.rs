@@ -282,6 +282,13 @@ fn set_measurements(
     })
 }
 
+/// Everything needed to search the open project: every pin with its floor,
+/// room, photo captions and counts. Fetched once when the search opens.
+#[tauri::command]
+fn search_context(state: State<AppState>) -> R<Vec<db::SearchHit>> {
+    with_project(&state, |conn, _| db::search_context(conn).map_err(s))
+}
+
 // ---------------------------------------------------------------------------
 // rulers
 // ---------------------------------------------------------------------------
@@ -497,6 +504,7 @@ pub fn run() {
             delete_pin,
             list_measurements,
             set_measurements,
+            search_context,
             list_rulers,
             add_ruler,
             restore_ruler,

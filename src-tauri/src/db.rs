@@ -746,3 +746,76 @@ pub fn restore_ruler(conn: &Connection, r: &Ruler) -> rusqlite::Result<Ruler> {
 pub fn delete_ruler(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
     conn.execute("DELETE FROM rulers WHERE id = ?1", [id])
 }
+
+// ---------------------------------------------------------------------------
+// search — across every floor of the open project
+// ---------------------------------------------------------------------------
+
+/// One pin matched by a search, with the context needed to show and reach it.
+/// `photo_count` and `measurement_count` also drive the "has photos" and
+/// "has measurements" filters, so the frontend needs no extra round trips.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchHit {
+    pub pin: Pin,
+    pub level_id: i64,
+    pub level_name: String,
+    pub room_name: Option<String>,
+    pub photo_count: i64,
+    pub measurement_count: i64,
+    /// This pin's photo captions joined together, so a search can match them
+    /// without a second query. The frontend decides which field matched.
+    pub captions: String,
+}
+
+/// Every pin in the project, with its context. The caller filters and ranks:
+/// a personal renovation has hundreds of pins, not millions, so one pass over
+/// them in the frontend is simpler and more flexible than SQL for each query.
+pub fn search_context(conn: &Connection) -> rusqlite::Result<Vec<SearchHit>> {
+    let mut stmt = conn.prepare(
+        "SELECT p.id, p.level_id, p.x, p.y, p.label, p.notes, p.category, p.room_id, p.created_at,
+                l.name,
+                r.name,
+                (SELECT COUNT(*) FROM photos       ph WHERE ph.pin_id = p.id),
+                (SELECT COUNT(*) FROM measurements m  WHERE m.pin_id  = p.id),
+                (SELECT COALESCE(GROUP_CONCAT(ph.caption, ' '), '') FROM photos ph WHERE ph.pin_id = p.id)
+         FROM pins p
+         JOIN levels l ON l.id = p.level_id
+         LEFT JOIN rooms r ON r.id = p.room_id
+         ORDER BY l.sort_order, l.id, p.id",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok((
+            Pin {
+                id: r.get(0)?,
+                level_id: r.get(1)?,
+                x: r.get(2)?,
+                y: r.get(3)?,
+                label: r.get(4)?,
+                notes: r.get(5)?,
+                category: r.get(6)?,
+                room_id: r.get(7)?,
+                created_at: r.get(8)?,
+            },
+            r.get::<_, String>(9)?,
+            r.get::<_, Option<String>>(10)?,
+            r.get::<_, i64>(11)?,
+            r.get::<_, i64>(12)?,
+            r.get::<_, String>(13)?,
+        ))
+    })?;
+    let mut out = Vec::new();
+    for row in rows {
+        let (pin, level_name, room_name, photo_count, measurement_count, captions) = row?;
+        out.push(SearchHit {
+            level_id: pin.level_id,
+            pin,
+            level_name,
+            room_name,
+            photo_count,
+            measurement_count,
+            captions,
+        });
+    }
+    Ok(out)
+}
