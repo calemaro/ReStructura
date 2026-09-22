@@ -20,7 +20,15 @@ import * as projects from "./projects.js";
 import { t, setLanguage, detectLanguage, currentLanguage, SUPPORTED } from "./i18n.js";
 import { setStatus, showError, askText, showContextMenu } from "./ui.js";
 import { CATEGORIES, SCHEMES, colourFor, pinIcon } from "./categories.js";
-import { parseCm, formatCm, inputCm } from "./units.js";
+import { parseCm as parseCmRaw, formatCm as formatCmRaw, inputCm as inputCmRaw, UNIT_SYSTEMS, scaleSteps, scaleLabel } from "./units.js";
+import * as settings from "./settings.js";
+
+// Unit-aware wrappers: everything in this file keeps calling parseCm/formatCm/inputCm
+// and the active preference is applied in one place.
+const unit = () => settings.value("units");
+const parseCm = (text) => parseCmRaw(text, unit());
+const formatCm = (cm, lang) => formatCmRaw(cm, lang, unit());
+const inputCm = (cm) => inputCmRaw(cm, unit());
 
 // ---- helpers: image pixels <-> Leaflet coordinates ----------------------------------
 let imageHeight = 0;
@@ -766,22 +774,18 @@ function renderScaleBar() {
   const cmToScreen = (cm) => (cm / k) * screenPerImage;
 
   let best = 1, bestErr = Infinity;
-  for (let pow = 0; pow <= 4; pow++) {                          // 1 cm … 10 000 cm (100 m)
-    for (const m of [1, 2, 5]) {
-      const cm = m * 10 ** pow;
-      const err = Math.abs(cmToScreen(cm) - TARGET);
-      if (err < bestErr) { best = cm; bestErr = err; }
-    }
+  for (const cm of scaleSteps(unit())) {          // round values for the active system
+    const err = Math.abs(cmToScreen(cm) - TARGET);
+    if (err < bestErr) { best = cm; bestErr = err; }
   }
   const width = Math.round(cmToScreen(best));
   bar.hidden = false;
   bar.querySelector(".bar").style.width = `${Math.max(24, Math.min(200, width))}px`;
-  const unit = best >= 100 ? "m" : "cm";
-  const val = best >= 100 ? best / 100 : best;
-  const half = val / 2;
+  const { value: v, unit: u } = scaleLabel(best, unit());
+  const num = parseFloat(v);
   const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(n < 1 ? 2 : 1));
-  $("#scale-mid").textContent = fmt(half);
-  $("#scale-end").textContent = `${fmt(val)} ${unit}`;
+  $("#scale-mid").textContent = fmt(num / 2);
+  $("#scale-end").textContent = `${fmt(num)} ${u}`;
 }
 
 // ---- kept measurements ---------------------------------------------------------------
@@ -1077,6 +1081,101 @@ async function goToHit(h) {
   } catch (err) { showError(err); }
 }
 
+// ---- settings screen --------------------------------------------------------------------
+const settingsEl = $("#settings");
+
+function fillSettingsOptions() {
+  const lang = $("#set-language");
+  lang.innerHTML = "";
+  for (const [code, name] of Object.entries(SUPPORTED)) lang.add(new Option(name, code));
+  lang.value = currentLanguage();
+
+  const theme = $("#set-theme");
+  theme.innerHTML = "";
+  for (const v of ["system", "light", "dark"]) theme.add(new Option(t("theme." + v), v));
+  theme.value = settings.value("theme");
+
+  const units = $("#set-units");
+  units.innerHTML = "";
+  for (const [v, key] of Object.entries(UNIT_SYSTEMS)) units.add(new Option(t(key), v));
+  units.value = settings.value("units");
+
+  for (const [id, val] of [["set-scheme", settings.value("defaultColourScheme")], ["set-project-scheme", scheme]]) {
+    const sel = $("#" + id);
+    sel.innerHTML = "";
+    for (const k of Object.keys(SCHEMES)) sel.add(new Option(t("scheme." + k), k));
+    sel.value = val;
+  }
+}
+
+const formatBytes = (n) => {
+  const units = ["B", "kB", "MB", "GB"];
+  let i = 0, v = n;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
+};
+
+async function openSettings() {
+  fillSettingsOptions();
+  try { $("#set-storage").textContent = await api.projectsDir(); } catch (_) {}
+  // The project section exists only when there is a project to describe.
+  const hasProject = !!project && $("#plan-bar").hidden === false;
+  $("#settings-project-section").hidden = !hasProject;
+  if (hasProject) {
+    $("#set-project-name").value = project.name;
+    try {
+      const st = await api.projectStats();
+      $("#set-stats").textContent = t("settings.statsLine", {
+        floors: st.levels, rooms: st.rooms, pins: st.pins, photos: st.photos, size: formatBytes(st.bytes),
+      });
+    } catch (err) { showError(err); }
+  }
+  settingsEl.hidden = false;
+}
+function closeSettings() { settingsEl.hidden = true; }
+for (const b of document.querySelectorAll(".btn-settings")) b.addEventListener("click", openSettings);
+$("#settings-close").addEventListener("click", closeSettings);
+
+$("#set-language").addEventListener("change", (e) => { settings.set({ language: e.target.value }); setLanguage(e.target.value); });
+$("#set-theme").addEventListener("change", (e) => settings.set({ theme: e.target.value }));
+$("#set-units").addEventListener("change", (e) => { settings.set({ units: e.target.value }); redrawUnits(); });
+$("#set-scheme").addEventListener("change", (e) => settings.set({ defaultColourScheme: e.target.value }));
+
+$("#set-open-folder").addEventListener("click", async () => {
+  try { await api.openPath(await api.projectsDir()); } catch (err) { showError(err); }
+});
+
+// project settings
+let renameTimer = null;
+$("#set-project-name").addEventListener("input", () => {
+  clearTimeout(renameTimer);
+  renameTimer = setTimeout(async () => {
+    const name = $("#set-project-name").value.trim();
+    if (!name || !project || name === project.name) return;
+    try {
+      project = await api.renameProject(project.slug, name);
+      $("#project-name").textContent = project.name;
+      setStatus(t("settings.renamed", { name: project.name }));
+    } catch (err) { showError(err); }
+  }, 600);
+});
+$("#set-project-scheme").addEventListener("change", async (e) => {
+  try {
+    project = await api.setColourScheme(e.target.value);
+    scheme = project.colourScheme;
+    refreshIcons(); renderLegend();
+    if (selectedId != null) swatchEl.style.background = colourFor(scheme, pins.get(selectedId).pin.category);
+  } catch (err) { showError(err); }
+});
+
+/** Redraw everything that shows a length after the unit preference changes. */
+function redrawUnits() {
+  renderScaleBar();
+  renderRulers();
+  if (selectedId != null) { renderMeasurements(measurements); showPin(selectedId); }
+  if (selectedRoomId != null) showRoom(selectedRoomId);
+}
+
 // ---- right-click menus (#11): drawn by the app, same actions as buttons and keys ------
 // (A native GTK popup opened from JavaScript is dismissed instantly on Wayland — it
 // needs the originating input event, which is gone by the time the call reaches Rust.
@@ -1294,6 +1393,7 @@ document.addEventListener("keydown", (e) => {
       if (e.key === "ArrowRight") { e.preventDefault(); showViewerIndex(viewerIndex + 1); return; }
     }
   }
+  if (e.key === "Escape" && !settingsEl.hidden) { closeSettings(); return; }
   if (e.key === "Escape") {
     if (searchActive && (document.activeElement === searchInput || searchPanelEl.contains(document.activeElement))) { closeSearch(); return; }
     if (picking) { stopPicking(); return; }
@@ -1327,14 +1427,8 @@ document.addEventListener("keydown", (e) => {
   else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); doRedo(); }
 });
 
-// ---- language switcher (one select in each header, kept in sync) -------------------
-const langSelects = [...document.querySelectorAll(".lang-select")];
-for (const sel of langSelects) {
-  for (const [code, name] of Object.entries(SUPPORTED)) sel.add(new Option(name, code));
-  sel.addEventListener("change", () => setLanguage(sel.value));
-}
-document.addEventListener("languagechange", (e) => {
-  for (const sel of langSelects) sel.value = e.detail.lang;
+// ---- language now lives in Settings ---------------------------------------------------
+document.addEventListener("languagechange", () => {
   fillCategorySelect();
   if (level) renderLegend();
   if (selectedId != null && measDirtyId == null) renderMeasurements(measurements);
@@ -1343,6 +1437,7 @@ document.addEventListener("languagechange", (e) => {
   fillPinRoomSelect();
   renderScale();
   renderRulers();
+  if (!settingsEl.hidden) fillSettingsOptions();
   if (searchActive) { fillSearchFilters(); runSearch(); }
   setPlacing(placing);
 });
@@ -1484,7 +1579,8 @@ $("#btn-projects").addEventListener("click", async () => { await flushSave(); pr
 
 // ---- boot ----------------------------------------------------------------------------
 async function main() {
-  const lang = detectLanguage();
+  settings.load();
+  const lang = settings.value("language") ?? detectLanguage();
   await setLanguage(lang);           // fills every data-i18n element and fires languagechange
   setPlacing(false);
   fillCategorySelect();

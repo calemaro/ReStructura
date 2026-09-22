@@ -249,6 +249,63 @@ pub fn migrate_legacy(app_data: &Path, root: &Path) -> R<Option<ProjectInfo>> {
     info(&dir).map(Some)
 }
 
+/// Change a project's display name. The folder and its slug stay as they are:
+/// the slug is the project's identity, referenced by the last-opened setting and
+/// by any zip already exported.
+pub fn rename(root: &Path, slug: &str, name: &str) -> R<ProjectInfo> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("a project needs a name".into());
+    }
+    let dir = root.join(slug);
+    let mut m = read_manifest(&dir)?;
+    m.name = name.to_string();
+    m.modified_at = now();
+    write_manifest(&dir, &m)?;
+    info(&dir)
+}
+
+/// Counts and disk usage, for the project summary in Settings.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectStats {
+    pub levels: i64,
+    pub pins: i64,
+    pub photos: i64,
+    pub rooms: i64,
+    pub bytes: u64,
+}
+
+pub fn stats(dir: &Path, conn: &Connection) -> R<ProjectStats> {
+    let count = |sql: &str| -> R<i64> {
+        conn.query_row(sql, [], |r| r.get(0))
+            .map_err(io_err("counting"))
+    };
+    Ok(ProjectStats {
+        levels: count("SELECT COUNT(*) FROM levels")?,
+        pins: count("SELECT COUNT(*) FROM pins")?,
+        photos: count("SELECT COUNT(*) FROM photos")?,
+        rooms: count("SELECT COUNT(*) FROM rooms")?,
+        bytes: dir_size(dir),
+    })
+}
+
+/// Total bytes under `dir`. Unreadable entries are skipped rather than failing:
+/// a size readout must never stop the screen from opening.
+fn dir_size(dir: &Path) -> u64 {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return 0;
+    };
+    entries
+        .filter_map(|e| e.ok())
+        .map(|e| match e.file_type() {
+            Ok(ft) if ft.is_dir() => dir_size(&e.path()),
+            Ok(_) => e.metadata().map(|m| m.len()).unwrap_or(0),
+            Err(_) => 0,
+        })
+        .sum()
+}
+
 /// Remove a project. The folder goes to the operating system's trash / recycle
 /// bin rather than being erased, so a mistaken delete is recoverable.
 pub fn delete(root: &Path, slug: &str) -> R<()> {

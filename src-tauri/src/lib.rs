@@ -122,6 +122,16 @@ fn delete_project(state: State<AppState>, slug: String) -> R<()> {
 }
 
 #[tauri::command]
+fn rename_project(state: State<AppState>, slug: String, name: String) -> R<ProjectInfo> {
+    projects::rename(&state.projects_dir, &slug, &name)
+}
+
+#[tauri::command]
+fn project_stats(state: State<AppState>) -> R<projects::ProjectStats> {
+    with_project(&state, |conn, dir| projects::stats(dir, conn))
+}
+
+#[tauri::command]
 fn export_project(state: State<AppState>, slug: String, dest: String) -> R<()> {
     projects::export_zip(&state.projects_dir.join(slug), Path::new(&dest))
 }
@@ -489,6 +499,8 @@ pub fn run() {
             current_project,
             close_project,
             delete_project,
+            rename_project,
+            project_stats,
             export_project,
             import_project,
             projects_dir,
