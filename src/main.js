@@ -34,7 +34,11 @@ let level = null;                // the level currently shown
 let map = null;
 let bounds = null;
 let pins = new Map();            // pin id -> { pin, marker }
-let selectedId = null;           // pin open in the panel
+let selectedId = null;           // pin open in the panel (always part of the selection)
+const selection = new Set();     // selected pin ids — the target of Ctrl+C/X, Delete, edit mode
+let editingId = null;            // the one pin currently unlocked for dragging (#8)
+let clipboard = [];              // copied pins: { pin, measurements }
+let cursorLatLng = null;         // where the mouse is over the plan (for paste), or null
 let placing = false;             // "Add pin" mode: next click on the plan creates a pin
 let scheme = "it";               // the project's colour scheme ("it" | "apwa")
 const hiddenCats = new Set();    // categories switched off in the legend
@@ -61,16 +65,36 @@ function fillCategorySelect() {
   if (v) catSelect.value = v;
 }
 
-function showPin(id, { focus = false } = {}) {
+function refreshIcons() {
+  for (const [pid, e] of pins) {
+    e.marker.setIcon(pinIcon(colourFor(scheme, e.pin.category), { selected: selection.has(pid) }));
+    if (pid === editingId) e.marker.getElement()?.classList.add("editing");
+  }
+  applyFilter();
+}
+function setSelection(ids) {
+  selection.clear();
+  for (const id of ids) if (pins.has(id)) selection.add(id);
+  if (selectedId != null && !selection.has(selectedId)) selectedId = null, panelEl.hidden = true;
+  refreshIcons();
+  if (selection.size > 1) setStatus(t("status.selected", { n: selection.size }));
+}
+
+function showPin(id, { focus = false, keepSelection = false } = {}) {
   const entry = pins.get(id);
   if (!entry) return;
   const { pin } = entry;
+  if (editingId != null && editingId !== id) setEditing(null);
   selectedId = id;
+  if (!keepSelection) { selection.clear(); }
+  selection.add(id);
   labelInput.value = pin.label;
   notesInput.value = pin.notes;
   catSelect.value = pin.category;
   swatchEl.style.background = colourFor(scheme, pin.category);
-  for (const [pid, e] of pins) e.marker.setIcon(pinIcon(colourFor(scheme, e.pin.category), { selected: pid === id }));
+  refreshIcons();
+  $("#pin-edit-pos").setAttribute("aria-pressed", String(editingId === id));
+  $("#pin-edit-pos").textContent = t(editingId === id ? "panel.donePosition" : "panel.editPosition");
   $("#pin-position").textContent = t("panel.positionValue", { x: Math.round(pin.x), y: Math.round(pin.y) });
   $("#pin-created").textContent = new Date(pin.createdAt).toLocaleString(currentLanguage());
   setSaveState("");
@@ -85,9 +109,11 @@ function hidePanel() {
   flushSave();
   flushMeasSave();
   if (!viewerEl.hidden) closeViewer();
+  if (editingId != null) setEditing(null);
   panelEl.hidden = true;
-  if (selectedId != null) pins.get(selectedId)?.marker.setIcon(pinIcon(colourFor(scheme, pins.get(selectedId).pin.category)));
   selectedId = null;
+  selection.clear();
+  refreshIcons();
 }
 $("#panel-close").addEventListener("click", hidePanel);
 
@@ -128,8 +154,7 @@ async function flushSave() {
     e.pin = updated;
     e.marker.options.title = updated.label;
     e.marker.getElement()?.setAttribute("title", updated.label);
-    e.marker.setIcon(pinIcon(colourFor(scheme, updated.category), { selected: selectedId === id }));
-    applyFilter();
+    refreshIcons();
     if (selectedId === id) {
       labelInput.value = updated.label; notesInput.value = updated.notes; catSelect.value = updated.category;
       swatchEl.style.background = colourFor(scheme, updated.category);
@@ -386,39 +411,24 @@ $("#meas-add").addEventListener("click", () => {
   row.querySelector(".ref").focus();
 });
 
-$("#pin-delete").addEventListener("click", async () => {
-  if (selectedId == null || !confirm(t("panel.deleteConfirm"))) return;
-  const id = selectedId;
-  await flushSave();
-  await flushMeasSave();
-  const snapshot = { ...pins.get(id).pin };
-  const measSnapshot = await api.listMeasurements(id);   // removed with the pin; undo puts them back
-  const photoSnapshot = await api.listPhotos(id);        // rows go with the pin; the files stay, so rows are re-inserted on undo
-  try {
-    await history.run({
-      label: t("history.deletePin"),
-      do: async () => {
-        await api.deletePin(id);
-        removeMarker(id);
-        if (selectedId === id) hidePanel();
-        setStatus(t("status.deleted", { id }));
-      },
-      undo: async () => {
-        const pin = await api.restorePin(snapshot);
-        if (measSnapshot.length) await api.setMeasurements(pin.id, measSnapshot);
-        for (const ph of photoSnapshot) await api.restorePhoto(ph);
-        addMarker(pin);
-        showPin(pin.id);
-      },
-    });
-  } catch (err) { showError(err); }
-});
+$("#pin-delete").addEventListener("click", () => { if (selectedId != null) { setSelection([selectedId]); deleteSelection(); } });
 
 // ---- markers -------------------------------------------------------------------------
 function addMarker(pin) {
   const marker = L.marker(toLatLng(pin.x, pin.y), { title: pin.label, icon: pinIcon(colourFor(scheme, pin.category)) })
     .addTo(map)
-    .on("click", () => { flushSave(); flushMeasSave(); showPin(pin.id); });
+    .on("click", (e) => {
+      flushSave(); flushMeasSave();
+      const oe = e.originalEvent;
+      if (oe && (oe.ctrlKey || oe.metaKey || oe.shiftKey)) {          // toggle membership, keep the panel as it is
+        selection.has(pin.id) ? selection.delete(pin.id) : selection.add(pin.id);
+        if (selectedId === pin.id && !selection.has(pin.id)) { panelEl.hidden = true; selectedId = null; }
+        refreshIcons();
+        setStatus(t("status.selected", { n: selection.size }));
+        return;
+      }
+      showPin(pin.id);
+    })
   pins.set(pin.id, { pin, marker });
   applyFilter(); renderLegend();
   return marker;
@@ -426,7 +436,125 @@ function addMarker(pin) {
 function removeMarker(id) {
   pins.get(id)?.marker.remove();
   pins.delete(id);
+  selection.delete(id);
+  if (editingId === id) editingId = null;
   renderLegend();
+}
+
+// ---- edit mode (#8): the selected pin is unlocked; clicking the plan moves it there ----
+function setEditing(id) {
+  if (editingId != null) pins.get(editingId)?.marker.getElement()?.classList.remove("editing");
+  editingId = id;
+  planEl.classList.toggle("moving", id != null);
+  if (id != null) {
+    pins.get(id)?.marker.getElement()?.classList.add("editing");
+    setStatus(t("status.editPosition"));
+  } else {
+    setStatus(t("status.ready"));
+  }
+  if (selectedId != null) {
+    $("#pin-edit-pos").setAttribute("aria-pressed", String(editingId === selectedId));
+    $("#pin-edit-pos").textContent = t(editingId === selectedId ? "panel.donePosition" : "panel.editPosition");
+  }
+}
+$("#pin-edit-pos").addEventListener("click", () => { if (selectedId != null) setEditing(editingId === selectedId ? null : selectedId); });
+
+/** Move the pin in edit mode to a clicked point. Each click is one undo step. */
+async function movePinTo(id, latlng) {
+  const e = pins.get(id);
+  if (!e) return;
+  const before = { x: e.pin.x, y: e.pin.y };
+  const after = toPixel(latlng);
+  if (before.x === after.x && before.y === after.y) return;
+  const apply = async (pos) => {
+    const updated = await api.movePin(id, pos.x, pos.y);
+    const en = pins.get(id);
+    if (!en) return;
+    en.pin = updated;
+    en.marker.setLatLng(toLatLng(updated.x, updated.y));
+    if (editingId === id) en.marker.getElement()?.classList.add("editing");
+    if (selectedId === id) $("#pin-position").textContent = t("panel.positionValue", { x: Math.round(updated.x), y: Math.round(updated.y) });
+  };
+  try { await history.run({ label: t("history.movePin"), do: () => apply(after), undo: () => apply(before) }); }
+  catch (err) { showError(err); }
+}
+
+// ---- clipboard and multi-pin operations (#13) ---------------------------------------
+function selectedEntries() { return [...selection].map((id) => pins.get(id)).filter(Boolean); }
+
+/** Snapshot the selected pins with their measurements (photos are not copied). */
+async function copySelection() {
+  const entries = selectedEntries();
+  if (!entries.length) return false;
+  clipboard = await Promise.all(entries.map(async ({ pin }) => ({ pin: { ...pin }, measurements: await api.listMeasurements(pin.id) })));
+  setStatus(t("status.copied", { n: clipboard.length }));
+  return true;
+}
+
+/** Paste at the cursor if it is over the plan, else slightly offset from the originals. */
+async function pasteClipboard() {
+  if (!clipboard.length || !level) { setStatus(t("status.nothingToPaste")); return; }
+  const anchor = clipboard[0].pin;
+  const target = cursorLatLng ? toPixel(cursorLatLng) : { x: anchor.x + 30, y: anchor.y + 30 };
+  const dx = target.x - anchor.x, dy = target.y - anchor.y;
+  let created = null;                                       // remembered so redo restores the same ids
+  try {
+    await history.run({
+      label: t("history.pastePins"),
+      do: async () => {
+        if (created) {
+          for (const c of created) { const pin = await api.restorePin(c.pin); if (c.measurements.length) await api.setMeasurements(pin.id, c.measurements); addMarker(pin); }
+        } else {
+          created = [];
+          for (const c of clipboard) {
+            const pin = await api.addPin(level.id, c.pin.x + dx, c.pin.y + dy, c.pin.label, c.pin.notes, c.pin.category);
+            if (c.measurements.length) await api.setMeasurements(pin.id, c.measurements);
+            created.push({ pin, measurements: c.measurements });
+            addMarker(pin);
+          }
+        }
+        setSelection(created.map((c) => c.pin.id));
+        setStatus(t("status.pasted", { n: created.length }));
+      },
+      undo: async () => {
+        for (const c of created) { await api.deletePin(c.pin.id); removeMarker(c.pin.id); }
+        if (created.some((c) => c.pin.id === selectedId)) { panelEl.hidden = true; selectedId = null; }
+        refreshIcons();
+      },
+    });
+  } catch (err) { showError(err); }
+}
+
+/** Delete every selected pin as one undo step, restoring measurements and photos on undo. */
+async function deleteSelection({ confirmFirst = true } = {}) {
+  const entries = selectedEntries();
+  if (!entries.length) return;
+  if (confirmFirst && !confirm(entries.length === 1 ? t("panel.deleteConfirm") : t("panel.deleteManyConfirm", { n: entries.length }))) return;
+  await flushSave(); await flushMeasSave();
+  const snaps = await Promise.all(entries.map(async ({ pin }) => ({
+    pin: { ...pin }, measurements: await api.listMeasurements(pin.id), photos: await api.listPhotos(pin.id),
+  })));
+  try {
+    await history.run({
+      label: entries.length === 1 ? t("history.deletePin") : t("history.deletePins"),
+      do: async () => {
+        for (const sn of snaps) { await api.deletePin(sn.pin.id); removeMarker(sn.pin.id); }
+        if (snaps.some((sn) => sn.pin.id === selectedId)) { panelEl.hidden = true; selectedId = null; }
+        refreshIcons();
+        setStatus(snaps.length === 1 ? t("status.deleted", { id: snaps[0].pin.id }) : t("status.deletedMany", { n: snaps.length }));
+      },
+      undo: async () => {
+        for (const sn of snaps) {
+          const pin = await api.restorePin(sn.pin);
+          if (sn.measurements.length) await api.setMeasurements(pin.id, sn.measurements);
+          for (const ph of sn.photos) await api.restorePhoto(ph);
+          addMarker(pin);
+        }
+        setSelection(snaps.map((sn) => sn.pin.id));
+        if (snaps.length === 1) showPin(snaps[0].pin.id);
+      },
+    });
+  } catch (err) { showError(err); }
 }
 
 // ---- legend: colours for the current scheme; click a row to hide/show that category
@@ -463,8 +591,7 @@ schemeSelect.addEventListener("change", async () => {
   try {
     project = await api.setColourScheme(schemeSelect.value);
     scheme = project.colourScheme;
-    for (const [pid, e] of pins) e.marker.setIcon(pinIcon(colourFor(scheme, e.pin.category), { selected: pid === selectedId }));
-    applyFilter();
+    refreshIcons();
     if (selectedId != null) swatchEl.style.background = colourFor(scheme, pins.get(selectedId).pin.category);
     renderLegend();
   } catch (err) { showError(err); }
@@ -535,10 +662,22 @@ document.addEventListener("keydown", (e) => {
       if (e.key === "ArrowRight") { e.preventDefault(); showViewerIndex(viewerIndex + 1); return; }
     }
   }
-  if (e.key === "Escape") { if (placing) setPlacing(false); return; }
+  if (e.key === "Escape") {
+    if (placing) setPlacing(false);
+    else if (editingId != null) setEditing(null);
+    else if (selection.size) { setSelection([]); panelEl.hidden = true; selectedId = null; }
+    return;
+  }
   const mod = e.ctrlKey || e.metaKey;
-  if (!mod) return;
   const k = e.key.toLowerCase();
+  if (!history.focusIsInTextField() && level) {
+    if ((e.key === "Delete" || e.key === "Backspace") && selection.size) { e.preventDefault(); deleteSelection(); return; }
+    if (mod && k === "a") { e.preventDefault(); setSelection([...pins.keys()].filter((id) => !hiddenCats.has(pins.get(id).pin.category))); return; }
+    if (mod && k === "c") { e.preventDefault(); copySelection().catch(showError); return; }
+    if (mod && k === "x") { e.preventDefault(); copySelection().then((ok) => ok && deleteSelection({ confirmFirst: false })).catch(showError); return; }
+    if (mod && k === "v") { e.preventDefault(); pasteClipboard(); return; }
+  }
+  if (!mod) return;
   if (history.focusIsInTextField()) {
     // While there is unsaved typing, Ctrl+Z is the text field's own undo.
     // Once saved (or nothing typed) it means the app's undo.
@@ -602,6 +741,7 @@ async function showLevel(lvl) {
   history.clear();
   if (map) { map.remove(); map = null; }
   pins = new Map();
+  selection.clear(); editingId = null; cursorLatLng = null;
   level = lvl;
   renderLevelSelect();
   emptyEl.hidden = !!lvl;
@@ -625,8 +765,12 @@ async function showLevel(lvl) {
   map.fitBounds(bounds);
   map.on("click", (e) => {
     if (placing) return createPinAt(e.latlng);
+    if (editingId != null) return movePinTo(editingId, e.latlng);   // edit mode: click = new position
+    if (selection.size) { hidePanel(); }
     setStatus(t("status.clicked", toPixel(e.latlng)));
   });
+  map.on("mousemove", (e) => { cursorLatLng = e.latlng; });
+  map.on("mouseout", () => { cursorLatLng = null; });
 
   const list = await api.listPins(lvl.id);
   list.forEach(addMarker);

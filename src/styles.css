@@ -243,3 +243,10 @@ input.invalid { outline: 2px solid #b3261e; outline-offset: -1px; }
 .viewer-foot input { flex: 1 1 auto; min-width: 0; font: inherit; padding: 6px 10px; border: 1px solid rgba(255,255,255,0.25); border-radius: 4px; background: rgba(255,255,255,0.08); color: #fff; }
 .viewer-foot input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .viewer-foot .mono { font-size: 12px; white-space: nowrap; }
+
+/* ---- selection and edit mode ------------------------------------------------------- */
+.panel-foot .spacer { flex: 1 1 auto; }
+/* never use transform here: Leaflet positions the marker with it */
+.pin-icon.editing { opacity: 0.55; outline: 2px dashed #a85d0c; outline-offset: 3px; border-radius: 50%; }
+.plan.moving { cursor: crosshair; }
+button[aria-pressed="true"]#pin-edit-pos { background: #a85d0c; border-color: #a85d0c; color: #fff; }

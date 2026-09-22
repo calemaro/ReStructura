@@ -187,6 +187,13 @@ fn update_pin(state: State<AppState>, id: i64, label: String, notes: String, cat
 }
 
 #[tauri::command]
+fn move_pin(state: State<AppState>, id: i64, x: f64, y: f64) -> R<db::Pin> {
+    with_project_mut(&state, |conn, _| {
+        db::move_pin(conn, id, x, y).map_err(s)?.ok_or_else(|| format!("pin {id} does not exist"))
+    })
+}
+
+#[tauri::command]
 fn restore_pin(state: State<AppState>, pin: db::Pin) -> R<db::Pin> {
     with_project_mut(&state, |conn, _| db::restore_pin(conn, &pin).map_err(s))
 }
@@ -284,7 +291,7 @@ pub fn run() {
             list_projects, create_project, open_project, current_project, close_project, delete_project,
             export_project, import_project, projects_dir, set_colour_scheme,
             list_levels, import_plan,
-            list_pins, add_pin, update_pin, restore_pin, delete_pin,
+            list_pins, add_pin, update_pin, move_pin, restore_pin, delete_pin,
             list_measurements, set_measurements,
             list_photos, add_photos, remove_photo, restore_photo, set_photo_caption,
         ])
