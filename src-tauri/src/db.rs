@@ -8,7 +8,7 @@
 //! image, y downwards — the convention the frontend also uses.
 
 use rusqlite::{params, Connection, OptionalExtension};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// A level of the home: the main floor, a mezzanine (soppalco), a basement…
@@ -24,7 +24,7 @@ pub struct Level {
     pub sort_order: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Pin {
     pub id: i64,
@@ -157,6 +157,18 @@ pub fn update_pin(conn: &Connection, id: i64, label: &str, notes: &str) -> rusql
         params![label, notes, id],
     )?;
     get_pin(conn, id)
+}
+
+/// Re-insert a pin exactly as it was, keeping its original id and timestamp.
+/// Used by undo: a restored pin must keep its identity so anything that
+/// referenced it (photos, later) lines up again.
+pub fn restore_pin(conn: &Connection, pin: &Pin) -> rusqlite::Result<Pin> {
+    conn.execute(
+        "INSERT OR REPLACE INTO pins (id, level_id, x, y, label, notes, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![pin.id, pin.level_id, pin.x, pin.y, pin.label, pin.notes, pin.created_at],
+    )?;
+    Ok(get_pin(conn, pin.id)?.expect("pin just restored must exist"))
 }
 
 pub fn delete_pin(conn: &Connection, id: i64) -> rusqlite::Result<usize> {

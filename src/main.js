@@ -16,9 +16,13 @@
 //   invoke("list_pins",  { levelId })           -> [{ id, levelId, x, y, label, notes, createdAt }]
 //   invoke("add_pin",    { levelId, x, y, label, notes }) -> the new pin
 //   invoke("update_pin", { id, label, notes })  -> the updated pin
+//   invoke("restore_pin", { pin })              -> the pin, re-inserted with its original id
 //   invoke("delete_pin", { id })                -> true if a row was removed
+//
+// Every change goes through history.run(command) so it can be undone — see history.js.
 
 import { t, setLanguage, detectLanguage, currentLanguage, SUPPORTED } from "./i18n.js";
+import * as history from "./history.js";
 
 // ---- Tauri bridge ------------------------------------------------------------------
 // `window.__TAURI__` exists only inside the desktop app (tauri.conf.json:
@@ -95,13 +99,30 @@ async function flushSave() {
   dirtyId = null;
   const entry = pins.get(id);
   if (!entry) return;
-  const label = labelInput.value.trim();
-  const notes = notesInput.value;
+  const before = { label: entry.pin.label, notes: entry.pin.notes };
+  const after = { label: labelInput.value.trim(), notes: notesInput.value };
+  if (before.label === after.label && before.notes === after.notes) { setSaveState(""); return; }
+
+  const apply = async (values) => {
+    const updated = await invoke("update_pin", { id, ...values });
+    const e = pins.get(id);
+    if (!e) return;
+    e.pin = updated;
+    e.marker.options.title = updated.label;
+    e.marker.getElement()?.setAttribute("title", updated.label);
+    if (selectedId === id) { labelInput.value = updated.label; notesInput.value = updated.notes; }
+  };
+  const cmd = {
+    label: t("history.editPin"),
+    pinId: id,
+    before, after,
+    do: () => apply(cmd.after),
+    undo: () => apply(cmd.before),
+    // consecutive edits of the same pin collapse into one history entry
+    merge(next) { if (next.pinId !== id || !next.before) return false; cmd.after = next.after; return true; },
+  };
   try {
-    const updated = await invoke("update_pin", { id, label, notes });
-    entry.pin = updated;
-    entry.marker.options.title = updated.label;
-    entry.marker.getElement()?.setAttribute("title", updated.label);
+    await history.run(cmd);
     if (selectedId === id) setSaveState("ok", t("panel.saved"));
   } catch (err) {
     console.error(err);
@@ -117,12 +138,23 @@ window.addEventListener("beforeunload", flushSave);
 $("#pin-delete").addEventListener("click", async () => {
   if (selectedId == null || !confirm(t("panel.deleteConfirm"))) return;
   const id = selectedId;
+  await flushSave();
+  const snapshot = { ...pins.get(id).pin };           // what undo will put back
   try {
-    await invoke("delete_pin", { id });
-    pins.get(id)?.marker.remove();
-    pins.delete(id);
-    hidePanel();
-    setStatus(t("status.deleted", { id }));
+    await history.run({
+      label: t("history.deletePin"),
+      do: async () => {
+        await invoke("delete_pin", { id });
+        removeMarker(id);
+        if (selectedId === id) hidePanel();
+        setStatus(t("status.deleted", { id }));
+      },
+      undo: async () => {
+        const pin = await invoke("restore_pin", { pin: snapshot });
+        addMarker(pin);
+        showPin(pin.id);
+      },
+    });
   } catch (err) { showError(err); }
 });
 
@@ -134,6 +166,10 @@ function addMarker(pin) {
   pins.set(pin.id, { pin, marker });
   return marker;
 }
+function removeMarker(id) {
+  pins.get(id)?.marker.remove();
+  pins.delete(id);
+}
 
 // ---- "Add pin" mode ------------------------------------------------------------------
 function setPlacing(on) {
@@ -144,17 +180,71 @@ function setPlacing(on) {
   setStatus(t(on ? "toolbar.addPinActive" : "status.ready"));
 }
 addBtn.addEventListener("click", () => setPlacing(!placing));
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && placing) setPlacing(false); });
+
+// ---- undo / redo: toolbar buttons and keyboard --------------------------------------
+const undoBtn = $("#btn-undo");
+const redoBtn = $("#btn-redo");
+let historyState = { canUndo: false, canRedo: false };
+history.onChange((st) => {
+  historyState = st;
+  undoBtn.disabled = !st.canUndo;
+  redoBtn.disabled = !st.canRedo;
+});
+async function doUndo() {
+  if (!historyState.canUndo) return;
+  const what = historyState.undoLabel;
+  await flushSave();
+  try { await history.undo(); setStatus(t("status.undone", { what })); } catch (err) { showError(err); }
+}
+async function doRedo() {
+  if (!historyState.canRedo) return;
+  const what = historyState.redoLabel;
+  try { await history.redo(); setStatus(t("status.redone", { what })); } catch (err) { showError(err); }
+}
+undoBtn.addEventListener("click", doUndo);
+redoBtn.addEventListener("click", doRedo);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { if (placing) setPlacing(false); return; }
+  const mod = e.ctrlKey || e.metaKey;
+  if (!mod) return;
+  const k = e.key.toLowerCase();
+  if (history.focusIsInTextField()) {
+    // While there is unsaved typing, Ctrl+Z is the text field's own undo.
+    // Once it has been saved (or nothing was typed) it means the app's undo.
+    if (dirtyId != null || !["z", "y"].includes(k)) return;
+    document.activeElement.blur();
+  }
+  if (k === "z" && !e.shiftKey) { e.preventDefault(); doUndo(); }
+  else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); doRedo(); }
+});
 
 async function createPinAt(latlng) {
   const { x, y } = toPixel(latlng);
+  let created = null;                                  // remembered so redo keeps the same id
   try {
-    // This is the round-trip: JS -> Rust -> SQLite -> Rust -> JS.
-    const pin = await invoke("add_pin", { levelId: level.id, x, y, label: "", notes: "" });
-    addMarker(pin);
-    setPlacing(false);
-    showPin(pin.id, { focus: true });
-    setStatus(t("status.saved", { id: pin.id, x, y }));
+    await history.run({
+      label: t("history.addPin"),
+      get pinId() { return created?.id; },
+      // Naming a pin right after placing it is part of placing it: absorb those edits.
+      merge(next) { if (!created || next.pinId !== created.id || !next.after) return false; created = { ...created, ...next.after }; return true; },
+      do: async () => {
+        // First time: a real insert (JS -> Rust -> SQLite -> Rust -> JS). On redo: restore as it was.
+        created = created
+          ? await invoke("restore_pin", { pin: created })
+          : await invoke("add_pin", { levelId: level.id, x, y, label: "", notes: "" });
+        addMarker(created);
+        setPlacing(false);
+        showPin(created.id, { focus: true });
+        setStatus(t("status.saved", { id: created.id, x, y }));
+      },
+      undo: async () => {
+        created = { ...pins.get(created.id)?.pin ?? created };   // keep any edits made since
+        await invoke("delete_pin", { id: created.id });
+        removeMarker(created.id);
+        if (selectedId === created.id) hidePanel();
+      },
+    });
   } catch (err) { showError(err); }
 }
 
@@ -190,6 +280,7 @@ async function showLevel(lvl) {
 
   if (map) map.remove();
   pins = new Map();
+  history.clear();
   map = L.map("plan", {
     crs: L.CRS.Simple,
     minZoom: -3,                   // negative zoom = image smaller than 1:1

@@ -57,6 +57,12 @@ button, select {
   cursor: pointer;
 }
 button:hover, select:hover { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+button:disabled:hover { border-color: var(--rule); }
+.btn-group { display: inline-flex; }
+.btn-group button { border-radius: 0; padding: 4px 9px; font-size: 15px; line-height: 1.1; }
+.btn-group button:first-child { border-radius: 4px 0 0 4px; }
+.btn-group button:last-child { border-radius: 0 4px 4px 0; margin-left: -1px; }
 button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .icon-btn { padding: 0 8px; font-size: 18px; line-height: 1.2; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
