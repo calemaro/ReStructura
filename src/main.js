@@ -41,6 +41,8 @@ let clipboard = [];              // copied pins: { pin, measurements }
 let cursorLatLng = null;         // where the mouse is over the plan (for paste), or null
 let placing = false;             // "Add pin" mode: next click on the plan creates a pin
 let scheme = "it";               // the project's colour scheme ("it" | "apwa")
+let rooms = [];                  // this level's rooms: { room, poly, layer, label }
+let selectedRoomId = null;       // room open in the room panel
 const hiddenCats = new Set();    // categories switched off in the legend
 
 // ---- DOM -----------------------------------------------------------------------------
@@ -85,6 +87,7 @@ function showPin(id, { focus = false, keepSelection = false } = {}) {
   if (!entry) return;
   const { pin } = entry;
   if (editingId != null && editingId !== id) setEditing(null);
+  if (!roomPanelEl.hidden) hideRoomPanel();
   selectedId = id;
   if (!keepSelection) { selection.clear(); }
   selection.add(id);
@@ -101,6 +104,7 @@ function showPin(id, { focus = false, keepSelection = false } = {}) {
   panelEl.hidden = false;
   renderMeasurements([]);
   renderPhotos([]);
+  refreshPinRoom();
   api.listMeasurements(id).then((list) => { if (selectedId === id) renderMeasurements(list); }).catch(showError);
   api.listPhotos(id).then((list) => { if (selectedId === id) renderPhotos(list); }).catch(showError);
   if (focus) { labelInput.focus(); labelInput.select(); }
@@ -142,13 +146,14 @@ async function flushSave() {
   dirtyId = null;
   const entry = pins.get(id);
   if (!entry) return;
-  const before = { label: entry.pin.label, notes: entry.pin.notes, category: entry.pin.category };
-  const after = { label: labelInput.value.trim(), notes: notesInput.value, category: catSelect.value };
-  if (before.label === after.label && before.notes === after.notes && before.category === after.category) { setSaveState(""); return; }
+  const before = { label: entry.pin.label, notes: entry.pin.notes, category: entry.pin.category, roomId: entry.pin.roomId ?? null };
+  const after = { label: labelInput.value.trim(), notes: notesInput.value, category: catSelect.value,
+                  roomId: pinRoomSelect.value ? Number(pinRoomSelect.value) : null };
+  if (before.label === after.label && before.notes === after.notes && before.category === after.category && before.roomId === after.roomId) { setSaveState(""); return; }
 
   lastCategory = after.category;
   const apply = async (values) => {
-    const updated = await api.updatePin(id, values.label, values.notes, values.category);
+    const updated = await api.updatePin(id, values.label, values.notes, values.category, values.roomId);
     const e = pins.get(id);
     if (!e) return;
     e.pin = updated;
@@ -157,6 +162,7 @@ async function flushSave() {
     refreshIcons();
     if (selectedId === id) {
       labelInput.value = updated.label; notesInput.value = updated.notes; catSelect.value = updated.category;
+      pinRoomSelect.value = updated.roomId != null ? String(updated.roomId) : "";
       swatchEl.style.background = colourFor(scheme, updated.category);
     }
     renderLegend();
@@ -480,6 +486,222 @@ async function movePinTo(id, latlng) {
   catch (err) { showError(err); }
 }
 
+// ---- room labels ---------------------------------------------------------------------
+// A room is a NAME placed on the plan, not a traced outline: the drawing already shows
+// where the rooms are, so tracing them is work for no gain. Which room a pin belongs to
+// is recorded on the pin itself (its Room field), chosen by the user.
+const roomPanelEl = $("#room-panel");
+const roomNameInput = $("#room-name");
+const roomCeilingInput = $("#room-ceiling");
+const roomBtn = $("#btn-room");
+const pinRoomSelect = $("#pin-room");
+
+let roomLayer = null;            // Leaflet layer group holding the labels
+let placingRoom = false;         // next plan click drops a new label
+let movingRoomId = null;         // label being repositioned (click-to-move, like pins)
+
+function roomLabelHtml(room, selected) {
+  const h = room.ceilingCm ? `<span class="h">H ${(room.ceilingCm / 100).toFixed(2)} m</span>` : "";
+  return `<div class="room-label${selected ? " selected" : ""}${movingRoomId === room.id ? " moving" : ""}">${escapeHtml(room.name)}${h}</div>`;
+}
+const escapeHtml = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function renderRooms() {
+  roomLayer?.clearLayers();
+  for (const r of rooms) {
+    const marker = L.marker(toLatLng(r.x, r.y), {
+      icon: L.divIcon({ className: "", html: roomLabelHtml(r, selectedRoomId === r.id), iconSize: [0, 0] }),
+    }).addTo(roomLayer);
+    marker.on("click", (e) => { L.DomEvent.stop(e); if (!placing && !placingRoom && editingId == null) showRoom(r.id); });
+    marker.on("contextmenu", (e) => { L.DomEvent.stop(e); roomMenu(r.id, { x: e.originalEvent.clientX, y: e.originalEvent.clientY }); });
+  }
+  fillPinRoomSelect();
+}
+
+async function reloadRooms() {
+  rooms = level ? await api.listRooms(level.id) : [];
+  renderRooms();
+}
+
+// ---- placing a new label
+function setPlacingRoom(on) {
+  placingRoom = on && !!level;
+  planEl.classList.toggle("drawing", placingRoom);
+  roomBtn.setAttribute("aria-pressed", String(placingRoom));
+  roomBtn.textContent = t(placingRoom ? "toolbar.cancel" : "room.add");
+  setStatus(t(placingRoom ? "room.placing" : "status.ready"));
+}
+roomBtn.addEventListener("click", () => setPlacingRoom(!placingRoom));
+
+async function createRoomAt(latlng) {
+  const { x, y } = toPixel(latlng);
+  setPlacingRoom(false);
+  const name = await askText(t("room.namePrompt"), { placeholder: t("room.namePlaceholder") });
+  if (!name) return;
+  let created = null;
+  try {
+    await history.run({
+      label: t("history.addRoom"),
+      do: async () => {
+        created = created ? await api.restoreRoom(created) : await api.addRoom(level.id, name, null, x, y);
+        await reloadRooms();
+        showRoom(created.id);
+        setStatus(t("room.added", { name: created.name }));
+      },
+      undo: async () => { await api.deleteRoom(created.id); hideRoomPanel(); await reloadRooms(); },
+    });
+  } catch (err) { showError(err); }
+}
+
+// ---- room panel
+function showRoom(id) {
+  const room = rooms.find((r) => r.id === id);
+  if (!room) return;
+  hidePanel();
+  selectedRoomId = id;
+  roomNameInput.value = room.name;
+  roomCeilingInput.value = inputCm(room.ceilingCm ?? null);
+  $("#room-ceiling-fmt").textContent = formatCm(room.ceilingCm ?? null, currentLanguage());
+  $("#room-save-state").textContent = "";
+  $("#room-move").setAttribute("aria-pressed", String(movingRoomId === id));
+  $("#room-move").textContent = t(movingRoomId === id ? "room.moveDone" : "room.move");
+  roomPanelEl.hidden = false;
+  renderRooms();
+}
+function hideRoomPanel() {
+  flushRoomSave();
+  if (movingRoomId != null) setMovingRoom(null);
+  roomPanelEl.hidden = true;
+  selectedRoomId = null;
+  renderRooms();
+}
+$("#room-close").addEventListener("click", hideRoomPanel);
+
+let roomTimer = null, roomDirty = null;
+function scheduleRoomSave() {
+  if (selectedRoomId == null) return;
+  roomDirty = selectedRoomId;
+  $("#room-save-state").textContent = t("panel.saving");
+  clearTimeout(roomTimer);
+  roomTimer = setTimeout(flushRoomSave, 600);
+}
+async function flushRoomSave() {
+  clearTimeout(roomTimer);
+  if (roomDirty == null) return;
+  const id = roomDirty; roomDirty = null;
+  const room = rooms.find((r) => r.id === id);
+  if (!room) return;
+  const ceiling = parseCm(roomCeilingInput.value);
+  if (Number.isNaN(ceiling)) { $("#room-save-state").textContent = t("meas.invalid"); return; }
+  const before = { name: room.name, ceilingCm: room.ceilingCm ?? null };
+  const after = { name: roomNameInput.value.trim(), ceilingCm: ceiling };
+  if (before.name === after.name && before.ceilingCm === after.ceilingCm) { $("#room-save-state").textContent = ""; return; }
+  const apply = async (v) => {
+    const updated = await api.updateRoom(id, v.name, v.ceilingCm, room.x, room.y);
+    const i = rooms.findIndex((r) => r.id === id);
+    if (i >= 0) rooms[i] = updated;
+    renderRooms();
+    if (selectedId != null) refreshPinRoom();
+    if (selectedRoomId === id) {
+      roomNameInput.value = updated.name;
+      roomCeilingInput.value = inputCm(updated.ceilingCm ?? null);
+      $("#room-ceiling-fmt").textContent = formatCm(updated.ceilingCm ?? null, currentLanguage());
+    }
+  };
+  const cmd = { label: t("history.editRoom"), roomId: id, roomBefore: before, roomAfter: after,
+    do: () => apply(cmd.roomAfter), undo: () => apply(cmd.roomBefore),
+    merge(next) { if (next.roomId !== id || !next.roomBefore) return false; cmd.roomAfter = next.roomAfter; return true; } };
+  try { await history.run(cmd); if (selectedRoomId === id) $("#room-save-state").textContent = t("panel.saved"); }
+  catch (err) { showError(err); }
+}
+roomNameInput.addEventListener("input", scheduleRoomSave);
+roomCeilingInput.addEventListener("input", () => {
+  const v = parseCm(roomCeilingInput.value);
+  $("#room-ceiling-fmt").textContent = Number.isNaN(v) ? "" : formatCm(v, currentLanguage());
+  scheduleRoomSave();
+});
+for (const el of [roomNameInput, roomCeilingInput]) el.addEventListener("blur", flushRoomSave);
+
+// ---- moving a label: click-to-move, the same gesture as a pin's Edit position
+function setMovingRoom(id) {
+  movingRoomId = id;
+  planEl.classList.toggle("moving", id != null);
+  setStatus(t(id != null ? "room.moving" : "status.ready"));
+  if (selectedRoomId != null) {
+    $("#room-move").setAttribute("aria-pressed", String(movingRoomId === selectedRoomId));
+    $("#room-move").textContent = t(movingRoomId === selectedRoomId ? "room.moveDone" : "room.move");
+  }
+  renderRooms();
+}
+$("#room-move").addEventListener("click", () => { if (selectedRoomId != null) setMovingRoom(movingRoomId === selectedRoomId ? null : selectedRoomId); });
+
+async function moveRoomTo(id, latlng) {
+  const room = rooms.find((r) => r.id === id);
+  if (!room) return;
+  const before = { x: room.x, y: room.y };
+  const after = toPixel(latlng);
+  if (before.x === after.x && before.y === after.y) return;
+  const apply = async (pos) => {
+    const updated = await api.updateRoom(id, room.name, room.ceilingCm ?? null, pos.x, pos.y);
+    const i = rooms.findIndex((r) => r.id === id);
+    if (i >= 0) rooms[i] = updated;
+    renderRooms();
+  };
+  try { await history.run({ label: t("history.moveRoom"), do: () => apply(after), undo: () => apply(before) }); }
+  catch (err) { showError(err); }
+}
+
+async function deleteRoomFlow(id) {
+  const room = rooms.find((r) => r.id === id);
+  if (!room || !confirm(t("room.deleteConfirm", { name: room.name }))) return;
+  const snapshot = { ...room };
+  try {
+    await history.run({
+      label: t("history.deleteRoom"),
+      do: async () => {
+        await api.deleteRoom(id);
+        if (selectedRoomId === id) hideRoomPanel();
+        await reloadRooms();
+        await reloadPinsRoomTags();
+        setStatus(t("room.deleted", { name: snapshot.name }));
+      },
+      undo: async () => { await api.restoreRoom(snapshot); await reloadRooms(); showRoom(snapshot.id); },
+    });
+  } catch (err) { showError(err); }
+}
+$("#room-delete").addEventListener("click", () => selectedRoomId != null && deleteRoomFlow(selectedRoomId));
+
+function roomMenu(id, at) {
+  showContextMenu([
+    { text: t("menu.open"), action: () => showRoom(id) },
+    { text: t("room.move"), action: () => { showRoom(id); setMovingRoom(id); } },
+    { separator: true },
+    { text: t("room.delete"), action: () => deleteRoomFlow(id) },
+  ], at);
+}
+
+// ---- the pin's own Room field
+function fillPinRoomSelect() {
+  const current = pinRoomSelect.value;
+  pinRoomSelect.innerHTML = "";
+  pinRoomSelect.add(new Option(t("panel.roomNone"), ""));
+  for (const r of rooms) pinRoomSelect.add(new Option(r.name, String(r.id)));
+  if (current) pinRoomSelect.value = current;
+}
+function refreshPinRoom() {
+  const pin = selectedId != null ? pins.get(selectedId)?.pin : null;
+  fillPinRoomSelect();
+  pinRoomSelect.value = pin?.roomId != null ? String(pin.roomId) : "";
+}
+/** After a label is deleted the database clears the tag; refresh what is on screen. */
+async function reloadPinsRoomTags() {
+  if (!level) return;
+  const list = await api.listPins(level.id);
+  for (const p of list) { const e = pins.get(p.id); if (e) e.pin = p; }
+  if (selectedId != null) refreshPinRoom();
+}
+pinRoomSelect.addEventListener("change", () => { scheduleSave(); flushSave(); });
+
 // ---- right-click menus (#11): drawn by the app, same actions as buttons and keys ------
 // (A native GTK popup opened from JavaScript is dismissed instantly on Wayland — it
 // needs the originating input event, which is gone by the time the call reaches Rust.
@@ -487,6 +709,7 @@ async function movePinTo(id, latlng) {
 function planMenu(latlng, at) {
   const items = [
     { text: t("menu.addPinHere"), action: () => createPinAt(latlng) },
+    { text: t("menu.addRoomHere"), action: () => createRoomAt(latlng) },
     { text: t("menu.pasteHere"), enabled: clipboard.length > 0, action: () => { cursorLatLng = latlng; pasteClipboard(); } },
     { separator: true },
     { text: t("menu.fitView"), action: () => map && map.fitBounds(bounds) },
@@ -696,6 +919,8 @@ document.addEventListener("keydown", (e) => {
     }
   }
   if (e.key === "Escape") {
+    if (placingRoom) { setPlacingRoom(false); return; }
+    if (movingRoomId != null) { setMovingRoom(null); return; }
     if (placing) setPlacing(false);
     else if (editingId != null) setEditing(null);
     else if (selection.size) { setSelection([]); panelEl.hidden = true; selectedId = null; }
@@ -733,6 +958,8 @@ document.addEventListener("languagechange", (e) => {
   if (level) renderLegend();
   if (selectedId != null && measDirtyId == null) renderMeasurements(measurements);
   if (selectedId != null && dirtyId == null) showPin(selectedId);
+  if (selectedRoomId != null && roomDirty == null) showRoom(selectedRoomId);
+  fillPinRoomSelect();
   setPlacing(placing);
 });
 
@@ -743,7 +970,7 @@ function showScreen(which) {
   $("#plan-bar").hidden = !plan;
   $("#status").hidden = !plan;
   planEl.hidden = !plan;
-  if (!plan) { panelEl.hidden = true; emptyEl.hidden = true; legendEl.hidden = true; }
+  if (!plan) { panelEl.hidden = true; roomPanelEl.hidden = true; emptyEl.hidden = true; legendEl.hidden = true; }
 }
 
 // ---- levels --------------------------------------------------------------------------
@@ -775,11 +1002,13 @@ async function showLevel(lvl) {
   if (map) { map.remove(); map = null; }
   pins = new Map();
   selection.clear(); editingId = null; cursorLatLng = null;
+  setPlacingRoom(false); movingRoomId = null; rooms = []; selectedRoomId = null; roomPanelEl.hidden = true;
   level = lvl;
   renderLevelSelect();
   emptyEl.hidden = !!lvl;
   legendEl.hidden = !lvl;
   addBtn.disabled = !lvl;
+  roomBtn.disabled = !lvl;
   if (!lvl) { setStatus(t("start.title")); return 0; }
 
   const url = api.fileUrl(lvl.imageFile);
@@ -795,17 +1024,21 @@ async function showLevel(lvl) {
     maxBounds: bounds.pad(0.5), maxBoundsViscosity: 0.6,
   });
   L.imageOverlay(url, bounds).addTo(map);
+  roomLayer = L.layerGroup().addTo(map);
   map.fitBounds(bounds);
   map.on("click", (e) => {
+    if (placingRoom) return createRoomAt(e.latlng);
+    if (movingRoomId != null) return moveRoomTo(movingRoomId, e.latlng);
     if (placing) return createPinAt(e.latlng);
     if (editingId != null) return movePinTo(editingId, e.latlng);   // edit mode: click = new position
     if (selection.size) { hidePanel(); }
     setStatus(t("status.clicked", toPixel(e.latlng)));
   });
-  map.on("contextmenu", (e) => { if (!placing && editingId == null) planMenu(e.latlng, { x: e.originalEvent.clientX, y: e.originalEvent.clientY }); });
+  map.on("contextmenu", (e) => { if (!placing && !placingRoom && editingId == null) planMenu(e.latlng, { x: e.originalEvent.clientX, y: e.originalEvent.clientY }); });
   map.on("mousemove", (e) => { cursorLatLng = e.latlng; });
   map.on("mouseout", () => { cursorLatLng = null; });
 
+  await reloadRooms();
   const list = await api.listPins(lvl.id);
   list.forEach(addMarker);
   setStatus(t("status.ready"));

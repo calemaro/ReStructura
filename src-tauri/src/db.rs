@@ -42,10 +42,37 @@ pub struct Pin {
     /// the project's colour scheme maps category -> colour at display time.
     #[serde(default = "default_category")]
     pub category: String,
+    /// Which room the user tagged this pin with, if any.
+    #[serde(default)]
+    pub room_id: Option<i64>,
     pub created_at: String,
 }
 fn default_category() -> String {
     "other".into()
+}
+
+/// A room label the user places on the plan: a name, an optional ceiling
+/// height, and the point the label sits at. It is annotation only — the plan
+/// image is never touched and nothing is read out of it.
+///
+/// Deliberately NOT an outline: tracing every room on a drawing that already
+/// shows them is work for no gain. A pin records which room it is in through
+/// its own `room_id`, chosen in the pin panel.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Room {
+    #[serde(default)]
+    pub id: i64,
+    pub level_id: i64,
+    pub name: String,
+    /// Ceiling height in centimetres, or None when not recorded.
+    #[serde(default)]
+    pub ceiling_cm: Option<f64>,
+    /// Where the label sits, in image pixels (origin top-left, y down).
+    pub x: f64,
+    pub y: f64,
+    #[serde(default)]
+    pub sort_order: i64,
 }
 
 /// A photo attached to a pin. Both paths are relative to the project folder
@@ -115,6 +142,7 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             label       TEXT    NOT NULL DEFAULT '',
             notes       TEXT    NOT NULL DEFAULT '',
             category    TEXT    NOT NULL DEFAULT 'other',
+            room_id     INTEGER REFERENCES rooms(id) ON DELETE SET NULL,
             created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
          );
          CREATE TABLE IF NOT EXISTS photos (
@@ -129,6 +157,15 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             key         TEXT PRIMARY KEY,
             value       TEXT NOT NULL
          );
+         CREATE TABLE IF NOT EXISTS rooms (
+            id          INTEGER PRIMARY KEY,
+            level_id    INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+            name        TEXT    NOT NULL DEFAULT '',
+            ceiling_cm  REAL,
+            x           REAL    NOT NULL,
+            y           REAL    NOT NULL,
+            sort_order  INTEGER NOT NULL DEFAULT 0
+         );
          CREATE TABLE IF NOT EXISTS measurements (
             id          INTEGER PRIMARY KEY,
             pin_id      INTEGER NOT NULL REFERENCES pins(id) ON DELETE CASCADE,
@@ -138,7 +175,8 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             sort_order  INTEGER NOT NULL DEFAULT 0
          );
          CREATE INDEX IF NOT EXISTS pins_by_level ON pins(level_id);
-         CREATE INDEX IF NOT EXISTS measurements_by_pin ON measurements(pin_id);",
+         CREATE INDEX IF NOT EXISTS measurements_by_pin ON measurements(pin_id);
+         CREATE INDEX IF NOT EXISTS rooms_by_level ON rooms(level_id);",
     )?;
 
     migrate(&conn)?;
@@ -152,7 +190,7 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
 /// and is applied in order, so a database from any earlier release ends up
 /// current. `CREATE TABLE IF NOT EXISTS` above already handles brand-new
 /// files, which is why a fresh database starts at the latest version.
-const DB_VERSION: i64 = 4;
+const DB_VERSION: i64 = 6;
 
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let mut v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
@@ -184,6 +222,42 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             )?;
         }
         v = 4;
+    }
+    if v < 5 {
+        // rooms table: created by the CREATE TABLE IF NOT EXISTS block above.
+        v = 5;
+    }
+    if v < 6 {
+        // Rooms began as traced outlines and became labels at a point: tracing a
+        // drawing that already shows the rooms was effort for no gain. The outline
+        // version never shipped, so the table is simply rebuilt.
+        let had_points: bool = conn
+            .prepare("SELECT 1 FROM pragma_table_info('rooms') WHERE name = 'points'")?
+            .exists([])?;
+        if had_points {
+            conn.execute_batch(
+                "DROP TABLE rooms;
+                 CREATE TABLE rooms (
+                    id          INTEGER PRIMARY KEY,
+                    level_id    INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+                    name        TEXT    NOT NULL DEFAULT '',
+                    ceiling_cm  REAL,
+                    x           REAL    NOT NULL,
+                    y           REAL    NOT NULL,
+                    sort_order  INTEGER NOT NULL DEFAULT 0
+                 );
+                 CREATE INDEX IF NOT EXISTS rooms_by_level ON rooms(level_id);",
+            )?;
+        }
+        let has_room_id: bool = conn
+            .prepare("SELECT 1 FROM pragma_table_info('pins') WHERE name = 'room_id'")?
+            .exists([])?;
+        if !has_room_id {
+            conn.execute_batch(
+                "ALTER TABLE pins ADD COLUMN room_id INTEGER REFERENCES rooms(id) ON DELETE SET NULL;",
+            )?;
+        }
+        v = 6;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
@@ -241,7 +315,7 @@ fn row_to_level(r: &rusqlite::Row<'_>) -> rusqlite::Result<Level> {
 
 pub fn list_pins(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Pin>> {
     let mut stmt = conn.prepare(
-        "SELECT id, level_id, x, y, label, notes, category, created_at FROM pins WHERE level_id = ?1 ORDER BY id",
+        "SELECT id, level_id, x, y, label, notes, category, room_id, created_at FROM pins WHERE level_id = ?1 ORDER BY id",
     )?;
     let rows = stmt.query_map([level_id], row_to_pin)?;
     rows.collect()
@@ -249,7 +323,7 @@ pub fn list_pins(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Pin>>
 
 pub fn get_pin(conn: &Connection, id: i64) -> rusqlite::Result<Option<Pin>> {
     conn.query_row(
-        "SELECT id, level_id, x, y, label, notes, category, created_at FROM pins WHERE id = ?1",
+        "SELECT id, level_id, x, y, label, notes, category, room_id, created_at FROM pins WHERE id = ?1",
         [id],
         row_to_pin,
     )
@@ -282,10 +356,11 @@ pub fn update_pin(
     label: &str,
     notes: &str,
     category: &str,
+    room_id: Option<i64>,
 ) -> rusqlite::Result<Option<Pin>> {
     conn.execute(
-        "UPDATE pins SET label = ?1, notes = ?2, category = ?3 WHERE id = ?4",
-        params![label, notes, category, id],
+        "UPDATE pins SET label = ?1, notes = ?2, category = ?3, room_id = ?4 WHERE id = ?5",
+        params![label, notes, category, room_id, id],
     )?;
     get_pin(conn, id)
 }
@@ -333,7 +408,8 @@ fn row_to_pin(r: &rusqlite::Row<'_>) -> rusqlite::Result<Pin> {
         label: r.get(4)?,
         notes: r.get(5)?,
         category: r.get(6)?,
-        created_at: r.get(7)?,
+        room_id: r.get(7)?,
+        created_at: r.get(8)?,
     })
 }
 
@@ -457,4 +533,96 @@ pub fn set_caption(conn: &Connection, id: i64, caption: &str) -> rusqlite::Resul
 
 pub fn delete_photo_row(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
     conn.execute("DELETE FROM photos WHERE id = ?1", [id])
+}
+
+// ---------------------------------------------------------------------------
+// rooms
+// ---------------------------------------------------------------------------
+
+const ROOM_COLS: &str = "id, level_id, name, ceiling_cm, x, y, sort_order";
+
+fn row_to_room(r: &rusqlite::Row<'_>) -> rusqlite::Result<Room> {
+    Ok(Room {
+        id: r.get(0)?,
+        level_id: r.get(1)?,
+        name: r.get(2)?,
+        ceiling_cm: r.get(3)?,
+        x: r.get(4)?,
+        y: r.get(5)?,
+        sort_order: r.get(6)?,
+    })
+}
+
+pub fn list_rooms(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Room>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {ROOM_COLS} FROM rooms WHERE level_id = ?1 ORDER BY sort_order, id"
+    ))?;
+    let rows = stmt.query_map([level_id], row_to_room)?;
+    rows.collect()
+}
+
+pub fn get_room(conn: &Connection, id: i64) -> rusqlite::Result<Option<Room>> {
+    conn.query_row(
+        &format!("SELECT {ROOM_COLS} FROM rooms WHERE id = ?1"),
+        [id],
+        row_to_room,
+    )
+    .optional()
+}
+
+pub fn add_room(
+    conn: &Connection,
+    level_id: i64,
+    name: &str,
+    ceiling_cm: Option<f64>,
+    x: f64,
+    y: f64,
+) -> rusqlite::Result<Room> {
+    let order: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM rooms WHERE level_id = ?1",
+        [level_id],
+        |r| r.get(0),
+    )?;
+    conn.execute(
+        "INSERT INTO rooms (level_id, name, ceiling_cm, x, y, sort_order) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![level_id, name.trim(), ceiling_cm, x, y, order],
+    )?;
+    Ok(get_room(conn, conn.last_insert_rowid())?.expect("room just inserted"))
+}
+
+pub fn update_room(
+    conn: &Connection,
+    id: i64,
+    name: &str,
+    ceiling_cm: Option<f64>,
+    x: f64,
+    y: f64,
+) -> rusqlite::Result<Option<Room>> {
+    conn.execute(
+        "UPDATE rooms SET name = ?1, ceiling_cm = ?2, x = ?3, y = ?4 WHERE id = ?5",
+        params![name.trim(), ceiling_cm, x, y, id],
+    )?;
+    get_room(conn, id)
+}
+
+/// Re-insert a deleted room with its original id (undo).
+pub fn restore_room(conn: &Connection, r: &Room) -> rusqlite::Result<Room> {
+    conn.execute(
+        "INSERT OR REPLACE INTO rooms (id, level_id, name, ceiling_cm, x, y, sort_order)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            r.id,
+            r.level_id,
+            r.name,
+            r.ceiling_cm,
+            r.x,
+            r.y,
+            r.sort_order
+        ],
+    )?;
+    Ok(get_room(conn, r.id)?.expect("room just restored"))
+}
+
+pub fn delete_room(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
+    conn.execute("DELETE FROM rooms WHERE id = ?1", [id])
 }
