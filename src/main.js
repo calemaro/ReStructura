@@ -20,6 +20,7 @@ import * as projects from "./projects.js";
 import { t, setLanguage, detectLanguage, currentLanguage, SUPPORTED } from "./i18n.js";
 import { setStatus, showError, askText } from "./ui.js";
 import { CATEGORIES, SCHEMES, colourFor, pinIcon } from "./categories.js";
+import { parseCm, formatCm, inputCm } from "./units.js";
 
 // ---- helpers: image pixels <-> Leaflet coordinates ----------------------------------
 let imageHeight = 0;
@@ -74,10 +75,13 @@ function showPin(id, { focus = false } = {}) {
   $("#pin-created").textContent = new Date(pin.createdAt).toLocaleString(currentLanguage());
   setSaveState("");
   panelEl.hidden = false;
+  renderMeasurements([]);
+  api.listMeasurements(id).then((list) => { if (selectedId === id) renderMeasurements(list); }).catch(showError);
   if (focus) { labelInput.focus(); labelInput.select(); }
 }
 function hidePanel() {
   flushSave();
+  flushMeasSave();
   panelEl.hidden = true;
   if (selectedId != null) pins.get(selectedId)?.marker.setIcon(pinIcon(colourFor(scheme, pins.get(selectedId).pin.category)));
   selectedId = null;
@@ -135,7 +139,7 @@ async function flushSave() {
     before, after,
     do: () => apply(cmd.after),
     undo: () => apply(cmd.before),
-    merge(next) { if (next.pinId !== id || !next.before) return false; cmd.after = next.after; return true; },
+    merge(next) { if (next.pinId !== id || !next.before || next.measBefore) return false; cmd.after = next.after; return true; },
   };
   try {
     await history.run(cmd);
@@ -152,11 +156,118 @@ labelInput.addEventListener("blur", flushSave);
 notesInput.addEventListener("blur", flushSave);
 window.addEventListener("beforeunload", flushSave);
 
+// ---- measurements --------------------------------------------------------------------
+// The pin's measurements are edited as one list. Height and depth are fixed rows;
+// distances are added rows. Each saved change (one field, one added or removed
+// row) is its own undo step, so Ctrl+Z steps back one measurement at a time.
+const measHeight = $("#meas-height");
+const measDepth = $("#meas-depth");
+const measDistances = $("#meas-distances");
+const measError = $("#meas-error");
+let measurements = [];           // the saved list for the selected pin
+let measTimer = null;
+let measDirtyId = null;
+
+function distanceRow(m = { reference: "", valueCm: null }) {
+  const row = document.createElement("div"); row.className = "dist-row";
+  const ref = document.createElement("input"); ref.type = "text"; ref.className = "ref"; ref.autocomplete = "off";
+  ref.placeholder = t("meas.refPlaceholder"); ref.value = m.reference ?? "";
+  const val = document.createElement("input"); val.type = "text"; val.className = "val"; val.inputMode = "decimal"; val.autocomplete = "off";
+  val.placeholder = t("meas.valuePlaceholder"); val.value = inputCm(m.valueCm);
+  const x = document.createElement("button"); x.type = "button"; x.className = "icon-btn x"; x.textContent = "×"; x.title = t("meas.remove");
+  const fmt = document.createElement("span"); fmt.className = "meas-fmt"; fmt.textContent = formatCm(m.valueCm, currentLanguage());
+  x.onclick = () => { row.remove(); scheduleMeasSave(); flushMeasSave(); };
+  for (const el of [ref, val]) { el.addEventListener("input", scheduleMeasSave); el.addEventListener("blur", flushMeasSave); }
+  val.addEventListener("input", () => { const v = parseCm(val.value); fmt.textContent = Number.isNaN(v) ? "" : formatCm(v, currentLanguage()); });
+  row.append(ref, val, x, fmt);
+  return row;
+}
+
+function renderMeasurements(list) {
+  measurements = list;
+  const h = list.find((m) => m.kind === "height");
+  const d = list.find((m) => m.kind === "depth");
+  measHeight.value = inputCm(h?.valueCm ?? null);
+  measDepth.value = inputCm(d?.valueCm ?? null);
+  $("#meas-height-fmt").textContent = formatCm(h?.valueCm ?? null, currentLanguage());
+  $("#meas-depth-fmt").textContent = formatCm(d?.valueCm ?? null, currentLanguage());
+  measDistances.innerHTML = "";
+  for (const m of list.filter((m) => m.kind === "distance")) measDistances.append(distanceRow(m));
+  measError.hidden = true;
+  for (const el of [measHeight, measDepth]) el.classList.remove("invalid");
+}
+
+/** Read the form back into a list. Returns null (and marks the field) if something is not a length. */
+function readMeasurements() {
+  const out = [];
+  let bad = false;
+  const take = (input, kind, reference = "") => {
+    const v = parseCm(input.value);
+    input.classList.toggle("invalid", Number.isNaN(v));
+    if (Number.isNaN(v)) { bad = true; return; }
+    if (v != null) out.push({ kind, reference, valueCm: v });
+  };
+  take(measHeight, "height");
+  take(measDepth, "depth");
+  for (const row of measDistances.querySelectorAll(".dist-row")) {
+    take(row.querySelector(".val"), "distance", row.querySelector(".ref").value.trim());
+  }
+  measError.hidden = !bad;
+  if (bad) measError.textContent = t("meas.invalid");
+  return bad ? null : out;
+}
+const sameList = (a, b) => JSON.stringify(a.map(({ kind, reference, valueCm }) => [kind, reference, valueCm]))
+                        === JSON.stringify(b.map(({ kind, reference, valueCm }) => [kind, reference, valueCm]));
+
+function scheduleMeasSave() {
+  if (selectedId == null) return;
+  measDirtyId = selectedId;
+  clearTimeout(measTimer);
+  measTimer = setTimeout(flushMeasSave, 700);
+}
+async function flushMeasSave() {
+  clearTimeout(measTimer);
+  if (measDirtyId == null) return;
+  const id = measDirtyId;
+  const after = readMeasurements();
+  if (after == null) return;                       // invalid input: keep dirty, wait for a fix
+  measDirtyId = null;
+  const before = measurements;
+  if (sameList(before, after)) return;
+  const apply = async (list) => {
+    const saved = await api.setMeasurements(id, list);
+    if (selectedId === id) renderMeasurements(saved);
+  };
+  const cmd = {
+    label: t("history.editMeasurements"), pinId: id, measBefore: before, measAfter: after,
+    do: () => apply(cmd.measAfter),
+    undo: () => apply(cmd.measBefore),
+    // deliberately no merge(): one undo step per saved change
+  };
+  try { await history.run(cmd); if (selectedId === id) setSaveState("ok", t("panel.saved")); }
+  catch (err) { showError(err); }
+}
+for (const el of [measHeight, measDepth]) {
+  el.addEventListener("input", () => {
+    const v = parseCm(el.value);
+    $(el === measHeight ? "#meas-height-fmt" : "#meas-depth-fmt").textContent = Number.isNaN(v) ? "" : formatCm(v, currentLanguage());
+    scheduleMeasSave();
+  });
+  el.addEventListener("blur", flushMeasSave);
+}
+$("#meas-add").addEventListener("click", () => {
+  const row = distanceRow();
+  measDistances.append(row);
+  row.querySelector(".ref").focus();
+});
+
 $("#pin-delete").addEventListener("click", async () => {
   if (selectedId == null || !confirm(t("panel.deleteConfirm"))) return;
   const id = selectedId;
   await flushSave();
+  await flushMeasSave();
   const snapshot = { ...pins.get(id).pin };
+  const measSnapshot = await api.listMeasurements(id);   // removed with the pin; undo puts them back
   try {
     await history.run({
       label: t("history.deletePin"),
@@ -168,6 +279,7 @@ $("#pin-delete").addEventListener("click", async () => {
       },
       undo: async () => {
         const pin = await api.restorePin(snapshot);
+        if (measSnapshot.length) await api.setMeasurements(pin.id, measSnapshot);
         addMarker(pin);
         showPin(pin.id);
       },
@@ -179,7 +291,7 @@ $("#pin-delete").addEventListener("click", async () => {
 function addMarker(pin) {
   const marker = L.marker(toLatLng(pin.x, pin.y), { title: pin.label, icon: pinIcon(colourFor(scheme, pin.category)) })
     .addTo(map)
-    .on("click", () => { flushSave(); showPin(pin.id); });
+    .on("click", () => { flushSave(); flushMeasSave(); showPin(pin.id); });
   pins.set(pin.id, { pin, marker });
   applyFilter(); renderLegend();
   return marker;
@@ -277,6 +389,7 @@ async function doUndo() {
   if (!historyState.canUndo) return;
   const what = historyState.undoLabel;
   await flushSave();
+  await flushMeasSave();
   try { await history.undo(); setStatus(t("status.undone", { what })); } catch (err) { showError(err); }
 }
 async function doRedo() {
@@ -295,7 +408,7 @@ document.addEventListener("keydown", (e) => {
   if (history.focusIsInTextField()) {
     // While there is unsaved typing, Ctrl+Z is the text field's own undo.
     // Once saved (or nothing typed) it means the app's undo.
-    if (dirtyId != null || !["z", "y"].includes(k)) return;
+    if (dirtyId != null || measDirtyId != null || !["z", "y"].includes(k)) return;
     document.activeElement.blur();
   }
   if (k === "z" && !e.shiftKey) { e.preventDefault(); doUndo(); }
@@ -312,6 +425,7 @@ document.addEventListener("languagechange", (e) => {
   for (const sel of langSelects) sel.value = e.detail.lang;
   fillCategorySelect();
   if (level) renderLegend();
+  if (selectedId != null && measDirtyId == null) renderMeasurements(measurements);
   if (selectedId != null && dirtyId == null) showPin(selectedId);
   setPlacing(placing);
 });
@@ -349,6 +463,7 @@ levelSelect.addEventListener("change", () => {
 
 async function showLevel(lvl) {
   await flushSave();
+  await flushMeasSave();
   hidePanel();
   history.clear();
   if (map) { map.remove(); map = null; }

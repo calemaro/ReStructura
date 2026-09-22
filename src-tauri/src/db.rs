@@ -46,6 +46,24 @@ pub struct Pin {
 }
 fn default_category() -> String { "other".into() }
 
+/// One measured distance on a pin, always in centimetres.
+/// `kind`: "height" (above finished floor), "depth" (from the finished wall
+/// surface) or "distance" (horizontal, from the named `reference`).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Measurement {
+    #[serde(default)]
+    pub id: i64,
+    #[serde(default)]
+    pub pin_id: i64,
+    pub kind: String,
+    #[serde(default)]
+    pub reference: String,
+    pub value_cm: f64,
+    #[serde(default)]
+    pub sort_order: i64,
+}
+
 /// Open (or create) the database file and make sure the schema exists.
 ///
 /// `rusqlite::Result<Connection>` is Rust's way of saying "either a Connection,
@@ -90,7 +108,16 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             key         TEXT PRIMARY KEY,
             value       TEXT NOT NULL
          );
-         CREATE INDEX IF NOT EXISTS pins_by_level ON pins(level_id);",
+         CREATE TABLE IF NOT EXISTS measurements (
+            id          INTEGER PRIMARY KEY,
+            pin_id      INTEGER NOT NULL REFERENCES pins(id) ON DELETE CASCADE,
+            kind        TEXT    NOT NULL,
+            reference   TEXT    NOT NULL DEFAULT '',
+            value_cm    REAL    NOT NULL,
+            sort_order  INTEGER NOT NULL DEFAULT 0
+         );
+         CREATE INDEX IF NOT EXISTS pins_by_level ON pins(level_id);
+         CREATE INDEX IF NOT EXISTS measurements_by_pin ON measurements(pin_id);",
     )?;
 
     migrate(&conn)?;
@@ -104,7 +131,7 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
 /// and is applied in order, so a database from any earlier release ends up
 /// current. `CREATE TABLE IF NOT EXISTS` above already handles brand-new
 /// files, which is why a fresh database starts at the latest version.
-const DB_VERSION: i64 = 2;
+const DB_VERSION: i64 = 3;
 
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let mut v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
@@ -119,6 +146,10 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     if v < 2 {
         conn.execute_batch("ALTER TABLE pins ADD COLUMN category TEXT NOT NULL DEFAULT 'other';")?;
         v = 2;
+    }
+    if v < 3 {
+        // measurements table: created by the CREATE TABLE IF NOT EXISTS block above.
+        v = 3;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
@@ -227,4 +258,39 @@ fn row_to_pin(r: &rusqlite::Row<'_>) -> rusqlite::Result<Pin> {
         category: r.get(6)?,
         created_at: r.get(7)?,
     })
+}
+
+// ---------------------------------------------------------------------------
+// measurements
+// ---------------------------------------------------------------------------
+
+pub fn list_measurements(conn: &Connection, pin_id: i64) -> rusqlite::Result<Vec<Measurement>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, pin_id, kind, reference, value_cm, sort_order FROM measurements WHERE pin_id = ?1 ORDER BY sort_order, id",
+    )?;
+    let rows = stmt.query_map([pin_id], |r| {
+        Ok(Measurement { id: r.get(0)?, pin_id: r.get(1)?, kind: r.get(2)?, reference: r.get(3)?, value_cm: r.get(4)?, sort_order: r.get(5)? })
+    })?;
+    rows.collect()
+}
+
+/// Replace a pin's measurements with `list`, in one transaction. Treating the
+/// list as a single value keeps undo and copy/paste trivial: "before" and
+/// "after" are just two lists.
+pub fn set_measurements(conn: &Connection, pin_id: i64, list: &[Measurement]) -> rusqlite::Result<Vec<Measurement>> {
+    conn.execute_batch("BEGIN;")?;
+    let result = (|| {
+        conn.execute("DELETE FROM measurements WHERE pin_id = ?1", [pin_id])?;
+        for (i, m) in list.iter().enumerate() {
+            conn.execute(
+                "INSERT INTO measurements (pin_id, kind, reference, value_cm, sort_order) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![pin_id, m.kind, m.reference.trim(), m.value_cm, i as i64],
+            )?;
+        }
+        list_measurements(conn, pin_id)
+    })();
+    match result {
+        Ok(v) => { conn.execute_batch("COMMIT;")?; Ok(v) }
+        Err(e) => { let _ = conn.execute_batch("ROLLBACK;"); Err(e) }
+    }
 }

@@ -196,6 +196,28 @@ fn delete_pin(state: State<AppState>, id: i64) -> R<bool> {
 }
 
 // ---------------------------------------------------------------------------
+// measurements
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+fn list_measurements(state: State<AppState>, pin_id: i64) -> R<Vec<db::Measurement>> {
+    with_project(&state, |conn, _| db::list_measurements(conn, pin_id).map_err(s))
+}
+
+#[tauri::command]
+fn set_measurements(state: State<AppState>, pin_id: i64, list: Vec<db::Measurement>) -> R<Vec<db::Measurement>> {
+    for m in &list {
+        if !["height", "depth", "distance"].contains(&m.kind.as_str()) {
+            return Err(format!("unknown measurement kind {}", m.kind));
+        }
+        if !m.value_cm.is_finite() || m.value_cm < 0.0 {
+            return Err("a measurement must be a non-negative number".into());
+        }
+    }
+    with_project_mut(&state, |conn, _| db::set_measurements(conn, pin_id, &list).map_err(s))
+}
+
+// ---------------------------------------------------------------------------
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -226,6 +248,7 @@ pub fn run() {
             export_project, import_project, projects_dir, set_colour_scheme,
             list_levels, import_plan,
             list_pins, add_pin, update_pin, restore_pin, delete_pin,
+            list_measurements, set_measurements,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
