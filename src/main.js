@@ -79,7 +79,7 @@ function setSelection(ids) {
   for (const id of ids) if (pins.has(id)) selection.add(id);
   if (selectedId != null && !selection.has(selectedId)) selectedId = null, panelEl.hidden = true;
   refreshIcons();
-  if (selection.size > 1) setStatus(t("status.selected", { n: selection.size }));
+  if (selection.size > 1 && !reportPinDistance()) setStatus(t("status.selected", { n: selection.size }));
 }
 
 function showPin(id, { focus = false, keepSelection = false } = {}) {
@@ -430,7 +430,7 @@ function addMarker(pin) {
         selection.has(pin.id) ? selection.delete(pin.id) : selection.add(pin.id);
         if (selectedId === pin.id && !selection.has(pin.id)) { panelEl.hidden = true; selectedId = null; }
         refreshIcons();
-        setStatus(t("status.selected", { n: selection.size }));
+        if (!reportPinDistance()) setStatus(t("status.selected", { n: selection.size }));
         return;
       }
       showPin(pin.id);
@@ -532,6 +532,17 @@ function setPlacingRoom(on) {
   setStatus(t(placingRoom ? "room.placing" : "status.ready"));
 }
 roomBtn.addEventListener("click", () => setPlacingRoom(!placingRoom));
+
+// One "Add" control instead of three buttons, to keep the header readable.
+$("#btn-add-menu").addEventListener("click", (e) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  showContextMenu([
+    { text: t("menu.addPin"), enabled: !!level, action: () => setPlacing(true) },
+    { text: t("menu.addRoom"), enabled: !!level, action: () => setPlacingRoom(true) },
+    { separator: true },
+    { text: t("menu.addLevel"), action: importPlanFlow },
+  ], { x: r.left, y: r.bottom + 4 });
+});
 
 async function createRoomAt(latlng) {
   const { x, y } = toPixel(latlng);
@@ -702,6 +713,213 @@ async function reloadPinsRoomTags() {
 }
 pinRoomSelect.addEventListener("change", () => { scheduleSave(); flushSave(); });
 
+// ---- scale calibration ----------------------------------------------------------------
+// The plan is a drawing, not a survey: even a perfect calibration inherits whatever error
+// the original drawing, the scan and the two clicks carry. Everything here is therefore
+// presented as approximate, it is entirely optional, and the measurements typed on a pin
+// are never derived from it.
+const scaleEl = $("#scale");
+const scaleBtn = $("#scale-btn");
+let picking = null;              // { mode: "calibrate" | "measure", first, line }
+
+const cmPerPx = () => level?.cmPerPx ?? null;
+/** With Shift held, drop the smaller component so the line is exactly horizontal or
+ *  vertical. Not the default: a scanned plan is often slightly rotated, and silently
+ *  moving the user's click would quietly bias a calibration. */
+function constrainToAxis(from, p, shiftKey) {
+  if (!shiftKey || !from) return p;
+  return Math.abs(p.x - from.x) >= Math.abs(p.y - from.y)
+    ? { x: p.x, y: from.y }
+    : { x: from.x, y: p.y };
+}
+const pxDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+/** Real distance between two plan points, or null when not calibrated. */
+const realCm = (a, b) => (cmPerPx() ? pxDistance(a, b) * cmPerPx() : null);
+
+function renderScale() {
+  const k = cmPerPx();
+  const busy = picking?.mode === "calibrate";
+  scaleEl.classList.toggle("on", !!k && !busy);
+  scaleBtn.classList.toggle("active", busy);
+  $("#scale-text").textContent = busy
+    ? t("scale.calibrating")
+    : k
+      ? t("scale.value", { cm: (Math.round(k * 100) / 100).toLocaleString(currentLanguage()) })
+      : t("scale.uncalibrated");
+  scaleBtn.textContent = t(busy ? "scale.calibrating" : k ? "scale.recalibrate" : "scale.calibrate");
+  renderScaleBar();
+}
+
+/** A bar whose drawn length is a round real-world number — 1-2-5 at every power of
+ *  ten from a centimetre to a hundred metres — chosen so the bar stays about 110 px
+ *  wide at ANY zoom. The unit switches between cm and m as needed, so it never runs
+ *  off the window or collapses to a hairline. */
+function renderScaleBar() {
+  const bar = $("#scale-bar");
+  const k = cmPerPx();
+  if (!k || !map) { bar.hidden = true; return; }
+  const screenPerImage = map.getZoomScale(map.getZoom(), 0);   // screen px per image px
+  const TARGET = 110;
+  const cmToScreen = (cm) => (cm / k) * screenPerImage;
+
+  let best = 1, bestErr = Infinity;
+  for (let pow = 0; pow <= 4; pow++) {                          // 1 cm … 10 000 cm (100 m)
+    for (const m of [1, 2, 5]) {
+      const cm = m * 10 ** pow;
+      const err = Math.abs(cmToScreen(cm) - TARGET);
+      if (err < bestErr) { best = cm; bestErr = err; }
+    }
+  }
+  const width = Math.round(cmToScreen(best));
+  bar.hidden = false;
+  bar.querySelector(".bar").style.width = `${Math.max(24, Math.min(200, width))}px`;
+  const unit = best >= 100 ? "m" : "cm";
+  const val = best >= 100 ? best / 100 : best;
+  const half = val / 2;
+  const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(n < 1 ? 2 : 1));
+  $("#scale-mid").textContent = fmt(half);
+  $("#scale-end").textContent = `${fmt(val)} ${unit}`;
+}
+
+// ---- kept measurements ---------------------------------------------------------------
+let rulerLayer = null;
+let rulers = [];                 // { ruler, line, label }
+let selectedRulerId = null;
+
+function rulerLength(r) { return cmPerPx() ? Math.hypot(r.x2 - r.x1, r.y2 - r.y1) * cmPerPx() : null; }
+
+function renderRulers() {
+  rulerLayer?.clearLayers();
+  for (const entry of rulers) {
+    const r = entry.ruler;
+    const selected = selectedRulerId === r.id;
+    const colour = selected ? "#a85d0c" : "#0b5fa5";
+    entry.line = L.polyline([toLatLng(r.x1, r.y1), toLatLng(r.x2, r.y2)], {
+      color: colour, weight: selected ? 3 : 2, dashArray: "6 4", interactive: true,
+    }).addTo(rulerLayer);
+    // end ticks, so it reads as a measurement rather than a stray line
+    for (const [x, y] of [[r.x1, r.y1], [r.x2, r.y2]]) {
+      L.circleMarker(toLatLng(x, y), { radius: 3, color: colour, fillColor: colour, fillOpacity: 1, weight: 1, interactive: false }).addTo(rulerLayer);
+    }
+    const len = rulerLength(r);
+    entry.label = L.marker(toLatLng((r.x1 + r.x2) / 2, (r.y1 + r.y2) / 2), {
+      icon: L.divIcon({ className: "", html: `<span class="ruler-label${selected ? " selected" : ""}">${escapeHtml(len == null ? "—" : formatCm(len, currentLanguage()))}</span>`, iconSize: [0, 0] }),
+    }).addTo(rulerLayer);
+    for (const target of [entry.line, entry.label]) {
+      target.on("click", (e) => { L.DomEvent.stop(e); selectRuler(r.id); });
+      target.on("contextmenu", (e) => {
+        L.DomEvent.stop(e);
+        selectRuler(r.id);
+        showContextMenu([{ text: t("menu.deleteRuler"), action: () => deleteRulerFlow(r.id) }],
+          { x: e.originalEvent.clientX, y: e.originalEvent.clientY });
+      });
+    }
+  }
+}
+function selectRuler(id) {
+  selectedRulerId = id;
+  setSelection([]);                       // a ruler and pins are not selected together
+  renderRulers();
+  const entry = rulers.find((r) => r.ruler.id === id);
+  const len = entry && rulerLength(entry.ruler);
+  setStatus(len == null ? t("measure.hintSelect") : `${formatCm(len, currentLanguage())} · ${t("measure.hintSelect")}`);
+}
+async function reloadRulers() {
+  rulers = level ? (await api.listRulers(level.id)).map((ruler) => ({ ruler })) : [];
+  renderRulers();
+}
+async function saveRuler(a, b) {
+  let created = null;
+  try {
+    await history.run({
+      label: t("history.addRuler"),
+      do: async () => {
+        created = created ? await api.restoreRuler(created) : await api.addRuler(level.id, a.x, a.y, b.x, b.y);
+        await reloadRulers();
+        selectedRulerId = created.id;
+        renderRulers();
+        setStatus(t("ruler.saved", { d: formatCm(rulerLength(created), currentLanguage()) }));
+      },
+      undo: async () => { await api.deleteRuler(created.id); if (selectedRulerId === created.id) selectedRulerId = null; await reloadRulers(); },
+    });
+  } catch (err) { showError(err); }
+}
+async function deleteRulerFlow(id) {
+  const entry = rulers.find((r) => r.ruler.id === id);
+  if (!entry) return;
+  const snapshot = { ...entry.ruler };
+  try {
+    await history.run({
+      label: t("history.deleteRuler"),
+      do: async () => { await api.deleteRuler(id); if (selectedRulerId === id) selectedRulerId = null; await reloadRulers(); setStatus(t("ruler.deleted")); },
+      undo: async () => { await api.restoreRuler(snapshot); selectedRulerId = snapshot.id; await reloadRulers(); },
+    });
+  } catch (err) { showError(err); }
+}
+
+function stopPicking() {
+  picking?.line?.remove();
+  picking = null;
+  planEl.classList.remove("measuring");
+  renderScale();
+  setStatus(t("status.ready"));
+}
+
+function startPicking(mode) {
+  if (!level) return;
+  hidePanel(); hideRoomPanel();
+  setPlacing(false); setPlacingRoom(false);
+  picking = { mode, first: null, line: null };
+  planEl.classList.add("measuring");
+  renderScale();
+  setStatus(t(mode === "calibrate" ? "scale.pick" : "measure.pick"));
+}
+
+async function pickedPoint(latlng, shiftKey) {
+  const p = constrainToAxis(picking.first, toPixel(latlng), shiftKey);
+  if (!picking.first) {
+    picking.first = p;
+    setStatus(t(picking.mode === "calibrate" ? "scale.pick2" : "measure.pick2"));
+    return;
+  }
+  const a = picking.first, b = p;
+  const mode = picking.mode;
+  stopPicking();
+  const px = pxDistance(a, b);
+  if (px < 10) { setStatus(t("scale.tooShort")); return; }
+
+  if (mode === "measure") return saveRuler(a, b);   // kept on the plan until deleted
+  const answer = await askText(t("scale.prompt"), { placeholder: t("meas.valuePlaceholder"), hint: t("scale.promptHint") });
+  if (!answer) return;
+  const cm = parseCm(answer);
+  if (cm == null || Number.isNaN(cm) || cm <= 0) { setStatus(t("meas.invalid")); return; }
+  const before = level.cmPerPx ?? null;
+  const after = cm / px;
+  const apply = async (value) => {
+    const updated = await api.setLevelScale(level.id, value);
+    level = updated;
+    const i = levels.findIndex((l) => l.id === updated.id);
+    if (i >= 0) levels[i] = updated;
+    renderScale();
+    setStatus(value
+      ? t("scale.done", { cm: (Math.round(value * 100) / 100).toLocaleString(currentLanguage()) })
+      : t("scale.cleared"));
+  };
+  try { await history.run({ label: t("history.setScale"), do: () => apply(after), undo: () => apply(before) }); }
+  catch (err) { showError(err); }
+}
+
+scaleBtn.addEventListener("click", () => (picking ? stopPicking() : startPicking("calibrate")));
+
+/** With exactly two pins selected and a calibrated plan, report the distance between them. */
+function reportPinDistance() {
+  if (!cmPerPx() || selection.size !== 2) return false;
+  const [a, b] = [...selection].map((id) => pins.get(id)?.pin).filter(Boolean);
+  if (!a || !b) return false;
+  setStatus(t("status.pinDistance", { d: formatCm(realCm(a, b), currentLanguage()) }));
+  return true;
+}
+
 // ---- right-click menus (#11): drawn by the app, same actions as buttons and keys ------
 // (A native GTK popup opened from JavaScript is dismissed instantly on Wayland — it
 // needs the originating input event, which is gone by the time the call reaches Rust.
@@ -712,6 +930,7 @@ function planMenu(latlng, at) {
     { text: t("menu.addRoomHere"), action: () => createRoomAt(latlng) },
     { text: t("menu.pasteHere"), enabled: clipboard.length > 0, action: () => { cursorLatLng = latlng; pasteClipboard(); } },
     { separator: true },
+    { text: t("menu.measure"), enabled: !!cmPerPx(), action: () => startPicking("measure") },
     { text: t("menu.fitView"), action: () => map && map.fitBounds(bounds) },
   ];
   showContextMenu(items, at);
@@ -919,6 +1138,8 @@ document.addEventListener("keydown", (e) => {
     }
   }
   if (e.key === "Escape") {
+    if (picking) { stopPicking(); return; }
+    if (selectedRulerId != null) { selectedRulerId = null; renderRulers(); setStatus(t("status.ready")); return; }
     if (placingRoom) { setPlacingRoom(false); return; }
     if (movingRoomId != null) { setMovingRoom(null); return; }
     if (placing) setPlacing(false);
@@ -929,6 +1150,7 @@ document.addEventListener("keydown", (e) => {
   const mod = e.ctrlKey || e.metaKey;
   const k = e.key.toLowerCase();
   if (!history.focusIsInTextField() && level) {
+    if ((e.key === "Delete" || e.key === "Backspace") && selectedRulerId != null) { e.preventDefault(); deleteRulerFlow(selectedRulerId); return; }
     if ((e.key === "Delete" || e.key === "Backspace") && selection.size) { e.preventDefault(); deleteSelection(); return; }
     if (mod && k === "a") { e.preventDefault(); setSelection([...pins.keys()].filter((id) => !hiddenCats.has(pins.get(id).pin.category))); return; }
     if (mod && k === "c") { e.preventDefault(); copySelection().catch(showError); return; }
@@ -960,6 +1182,8 @@ document.addEventListener("languagechange", (e) => {
   if (selectedId != null && dirtyId == null) showPin(selectedId);
   if (selectedRoomId != null && roomDirty == null) showRoom(selectedRoomId);
   fillPinRoomSelect();
+  renderScale();
+  renderRulers();
   setPlacing(placing);
 });
 
@@ -968,7 +1192,7 @@ function showScreen(which) {
   const plan = which === "plan";
   $("#menu-bar").hidden = plan;
   $("#plan-bar").hidden = !plan;
-  $("#status").hidden = !plan;
+  $("#statusbar").hidden = !plan;
   planEl.hidden = !plan;
   if (!plan) { panelEl.hidden = true; roomPanelEl.hidden = true; emptyEl.hidden = true; legendEl.hidden = true; }
 }
@@ -1002,13 +1226,17 @@ async function showLevel(lvl) {
   if (map) { map.remove(); map = null; }
   pins = new Map();
   selection.clear(); editingId = null; cursorLatLng = null;
-  setPlacingRoom(false); movingRoomId = null; rooms = []; selectedRoomId = null; roomPanelEl.hidden = true;
+  stopPicking(); setPlacingRoom(false); movingRoomId = null; rulers = []; selectedRulerId = null; rulerLayer = null; rooms = []; selectedRoomId = null; roomPanelEl.hidden = true;
   level = lvl;
   renderLevelSelect();
   emptyEl.hidden = !!lvl;
   legendEl.hidden = !lvl;
   addBtn.disabled = !lvl;
   roomBtn.disabled = !lvl;
+  $("#btn-add-menu").disabled = false;
+  scaleBtn.disabled = !lvl;
+  stopPicking();
+  renderScale();
   if (!lvl) { setStatus(t("start.title")); return 0; }
 
   const url = api.fileUrl(lvl.imageFile);
@@ -1025,20 +1253,36 @@ async function showLevel(lvl) {
   });
   L.imageOverlay(url, bounds).addTo(map);
   roomLayer = L.layerGroup().addTo(map);
+  rulerLayer = L.layerGroup().addTo(map);
   map.fitBounds(bounds);
+  renderScaleBar();
   map.on("click", (e) => {
+    if (picking) return pickedPoint(e.latlng, e.originalEvent?.shiftKey);
     if (placingRoom) return createRoomAt(e.latlng);
     if (movingRoomId != null) return moveRoomTo(movingRoomId, e.latlng);
     if (placing) return createPinAt(e.latlng);
     if (editingId != null) return movePinTo(editingId, e.latlng);   // edit mode: click = new position
+    if (selectedRulerId != null) { selectedRulerId = null; renderRulers(); }
     if (selection.size) { hidePanel(); }
     setStatus(t("status.clicked", toPixel(e.latlng)));
   });
   map.on("contextmenu", (e) => { if (!placing && !placingRoom && editingId == null) planMenu(e.latlng, { x: e.originalEvent.clientX, y: e.originalEvent.clientY }); });
-  map.on("mousemove", (e) => { cursorLatLng = e.latlng; });
+  map.on("mousemove", (e) => {
+    cursorLatLng = e.latlng;
+    if (picking?.first) {
+      const to = constrainToAxis(picking.first, toPixel(e.latlng), e.originalEvent?.shiftKey);
+      const lls = [toLatLng(picking.first.x, picking.first.y), toLatLng(to.x, to.y)];
+      if (!picking.line) picking.line = L.polyline(lls, { color: "#a85d0c", weight: 2, dashArray: "6 4" }).addTo(map);
+      else picking.line.setLatLngs(lls);
+      const px = pxDistance(picking.first, to);
+      if (cmPerPx()) setStatus(formatCm(px * cmPerPx(), currentLanguage()));
+    }
+  });
+  map.on("zoomend", renderScaleBar);
   map.on("mouseout", () => { cursorLatLng = null; });
 
   await reloadRooms();
+  await reloadRulers();
   const list = await api.listPins(lvl.id);
   list.forEach(addMarker);
   setStatus(t("status.ready"));
