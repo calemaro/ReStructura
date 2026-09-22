@@ -12,7 +12,7 @@
 
 export const SUPPORTED = { en: "English", it: "Italiano" };
 const FALLBACK = "en";
-const STORAGE_KEY = "planfloorviewer.lang";   // moves to the SQLite settings table in Phase F
+const STORAGE_KEY = "restructura.lang";   // moves to the SQLite settings table in Phase F
 
 const cache = {};                              // lang -> dictionary
 let active = FALLBACK;

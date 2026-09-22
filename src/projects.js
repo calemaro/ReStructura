@@ -7,7 +7,7 @@ import * as api from "./api.js";
 import { t, currentLanguage } from "./i18n.js";
 import { setStatus, showError, formatWhen } from "./ui.js";
 
-const LAST_KEY = "planfloorviewer.lastProject";
+const LAST_KEY = "restructura.lastProject";
 const $ = (s) => document.querySelector(s);
 const el = $("#chooser");
 let onOpen = null;

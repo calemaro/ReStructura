@@ -263,6 +263,27 @@ fn set_photo_caption(state: State<AppState>, id: i64, caption: String) -> R<db::
 
 // ---------------------------------------------------------------------------
 
+/// The app was called PlanFloorViewer before 0.2.0 and kept its data under
+/// `com.planfloorviewer.app`. On the first launch after the rename, move that
+/// projects folder into the new location so nothing the user made is lost.
+/// Silent no-op once done or when there is nothing to adopt.
+fn adopt_previous_data_dir(app_data: &Path, projects_dir: &Path) {
+    let Some(parent) = app_data.parent() else { return };
+    let old_projects = parent.join("com.planfloorviewer.app").join("projects");
+    let new_is_empty = std::fs::read_dir(projects_dir).map(|mut d| d.next().is_none()).unwrap_or(true);
+    if !old_projects.is_dir() || !new_is_empty {
+        return;
+    }
+    if std::fs::create_dir_all(app_data).is_err() {
+        return;
+    }
+    let _ = std::fs::remove_dir(projects_dir); // exists but empty; rename needs it absent
+    match std::fs::rename(&old_projects, projects_dir) {
+        Ok(()) => eprintln!("adopted projects from com.planfloorviewer.app"),
+        Err(e) => eprintln!("could not adopt previous projects folder: {e}"),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -270,11 +291,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // Runs once, before the window appears.
-            //   Linux   ~/.local/share/com.planfloorviewer.app/projects/
-            //   macOS   ~/Library/Application Support/com.planfloorviewer.app/projects/
-            //   Windows %APPDATA%\com.planfloorviewer.app\projects\
+            //   Linux   ~/.local/share/com.restructura.app/projects/
+            //   macOS   ~/Library/Application Support/com.restructura.app/projects/
+            //   Windows %APPDATA%\com.restructura.app\projects\
             let app_data = app.path().app_data_dir()?;
             let projects_dir = app_data.join("projects");
+            adopt_previous_data_dir(&app_data, &projects_dir);
             std::fs::create_dir_all(&projects_dir)?;
 
             // One-time: adopt the pre-projects database, or seed a demo on a fresh install.
