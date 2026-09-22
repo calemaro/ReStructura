@@ -37,6 +37,8 @@ export function init(openCallback, showCallback) {
       await refresh();
     } catch (err) { showError(err); }
   });
+  // Filtering the project list — shown only once there are enough projects to need it.
+  $("#project-search").addEventListener("input", renderList);
   document.addEventListener("languagechange", () => { if (!el.hidden) refresh(); });
 }
 
@@ -62,29 +64,44 @@ async function opened(p) {
   await onOpen?.(p);
 }
 
+let projects = [];
+
 async function refresh() {
+  try { projects = await api.listProjects(); } catch (err) { showError(err); projects = []; }
+  const search = $("#project-search");
+  search.hidden = projects.length < 4;        // pointless chrome for two or three
+  if (search.hidden) search.value = "";
+  renderList();
+  try { $("#chooser-where").textContent = t("chooser.where", { dir: await api.projectsDir() }); } catch (_) {}
+}
+
+function renderList() {
   const list = $("#project-list");
+  const q = $("#project-search").value.trim().toLowerCase();
+  const shown = q ? projects.filter((p) => p.name.toLowerCase().includes(q)) : projects;
   list.innerHTML = "";
-  let projects = [];
-  try { projects = await api.listProjects(); } catch (err) { showError(err); }
-  if (!projects.length) {
+
+  if (!shown.length) {
     const li = document.createElement("li");
-    li.className = "chooser-empty"; li.textContent = t("chooser.empty");
+    li.className = "chooser-empty";
+    li.textContent = q ? t("chooser.noMatch", { q }) : t("chooser.empty");
     list.append(li);
+    return;
   }
-  for (const p of projects) {
+
+  for (const p of shown) {
     const li = document.createElement("li");
     if (p.slug === currentSlug) li.classList.add("current");
     const main = document.createElement("div"); main.className = "p-main";
     const name = document.createElement("div"); name.className = "p-name"; name.textContent = p.name;
-    const meta = document.createElement("div"); meta.className = "p-meta";
-    meta.textContent = t("chooser.modified", { when: formatWhen(p.modifiedAt, currentLanguage()) });
-    main.append(name, meta);
-
     if (p.slug === currentSlug) {
       const cur = document.createElement("span"); cur.className = "p-current"; cur.textContent = t("chooser.current");
       name.append(cur);
     }
+    const meta = document.createElement("div"); meta.className = "p-meta";
+    meta.textContent = t("chooser.modified", { when: formatWhen(p.modifiedAt, currentLanguage()) });
+    main.append(name, meta);
+
     const actions = document.createElement("div"); actions.className = "p-actions";
     const open = document.createElement("button"); open.type = "button"; open.className = "primary"; open.textContent = t("chooser.open");
     open.onclick = async () => { try { await opened(await api.openProject(p.slug)); } catch (err) { showError(err); } };
@@ -111,5 +128,4 @@ async function refresh() {
     li.append(main, actions);
     list.append(li);
   }
-  try { $("#chooser-where").textContent = t("chooser.where", { dir: await api.projectsDir() }); } catch (_) {}
 }
