@@ -83,5 +83,16 @@
   "legend.scheme": "Colour scheme",
   "legend.hint": "Click a category to show or hide its pins",
   "scheme.it": "European",
-  "scheme.apwa": "APWA (US)"
+  "scheme.apwa": "APWA (US)",
+  "meas.title": "Measurements",
+  "meas.height": "Height above floor",
+  "meas.depth": "Depth in wall",
+  "meas.distances": "Distance from…",
+  "meas.refPlaceholder": "e.g. left jamb of the kitchen door",
+  "meas.valuePlaceholder": "cm",
+  "meas.add": "+ add a distance",
+  "meas.remove": "Remove",
+  "meas.invalid": "Not a length — use e.g. 112, 112 cm or 1.12 m",
+  "meas.hint": "Measured to the centre of the item, in centimetres. Type 112, 112 cm or 1.12 m.",
+  "history.editMeasurements": "edit measurements"
 }

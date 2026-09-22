@@ -87,6 +87,24 @@
           <dd><input id="pin-label" type="text" autocomplete="off" maxlength="120" data-i18n-attr="placeholder:panel.labelPlaceholder"></dd>
           <dt><label for="pin-notes" data-i18n="panel.notes"></label></dt>
           <dd><textarea id="pin-notes" rows="7" data-i18n-attr="placeholder:panel.notesPlaceholder"></textarea></dd>
+          <dt data-i18n="meas.title"></dt>
+          <dd class="meas">
+            <div class="meas-row">
+              <label for="meas-height" data-i18n="meas.height"></label>
+              <input id="meas-height" type="text" inputmode="decimal" autocomplete="off" data-i18n-attr="placeholder:meas.valuePlaceholder">
+              <span class="meas-fmt" id="meas-height-fmt"></span>
+            </div>
+            <div class="meas-row">
+              <label for="meas-depth" data-i18n="meas.depth"></label>
+              <input id="meas-depth" type="text" inputmode="decimal" autocomplete="off" data-i18n-attr="placeholder:meas.valuePlaceholder">
+              <span class="meas-fmt" id="meas-depth-fmt"></span>
+            </div>
+            <div class="meas-sub" data-i18n="meas.distances"></div>
+            <div id="meas-distances"></div>
+            <button id="meas-add" type="button" class="linkbtn" data-i18n="meas.add"></button>
+            <p class="meas-hint" data-i18n="meas.hint"></p>
+            <p class="meas-error" id="meas-error" hidden></p>
+          </dd>
           <dt data-i18n="panel.position"></dt>
           <dd id="pin-position" class="mono"></dd>
           <dt data-i18n="panel.created"></dt>

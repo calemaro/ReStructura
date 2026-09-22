@@ -33,6 +33,10 @@ export const updatePin  = (id, label, notes, category)  => invoke("update_pin", 
 export const restorePin = (pin)                        => invoke("restore_pin", { pin });
 export const deletePin  = (id)                         => invoke("delete_pin", { id });
 
+// ---- measurements --------------------------------------------------------------------
+export const listMeasurements = (pinId)       => invoke("list_measurements", { pinId });
+export const setMeasurements  = (pinId, list) => invoke("set_measurements", { pinId, list });
+
 // ---- native file dialogs (tauri-plugin-dialog) ---------------------------------------
 const dialog = tauri?.dialog;
 export async function pickImage(title) {

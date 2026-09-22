@@ -83,5 +83,16 @@
   "legend.scheme": "Convenzione colori",
   "legend.hint": "Clicca una categoria per mostrare o nascondere i suoi punti",
   "scheme.it": "Europea",
-  "scheme.apwa": "APWA (USA)"
+  "scheme.apwa": "APWA (USA)",
+  "meas.title": "Misure",
+  "meas.height": "Altezza dal pavimento",
+  "meas.depth": "Profondità nel muro",
+  "meas.distances": "Distanza da…",
+  "meas.refPlaceholder": "es. stipite sinistro della porta cucina",
+  "meas.valuePlaceholder": "cm",
+  "meas.add": "+ aggiungi una distanza",
+  "meas.remove": "Rimuovi",
+  "meas.invalid": "Non è una lunghezza — usa es. 112, 112 cm o 1,12 m",
+  "meas.hint": "Misurate al centro dell'elemento, in centimetri. Scrivi 112, 112 cm o 1,12 m.",
+  "history.editMeasurements": "modifica misure"
 }
