@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "PlanFloorViewer",
-  "version": "0.1.0",
-  "identifier": "com.planfloorviewer.app",
+  "productName": "ReStructura",
+  "version": "0.2.0",
+  "identifier": "com.restructura.app",
   "build": {
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "npm run dev:web",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "PlanFloorViewer",
+        "title": "ReStructura",
         "width": 1280,
         "height": 820,
         "minWidth": 900,
@@ -39,6 +39,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "shortDescription": "Document what is inside your walls",
+    "longDescription": "Pin photos, notes and measurements to a floor plan to document pipes, cables and conduit during a renovation. Fully offline; projects export as plain zip files.",
+    "category": "Utility"
   }
 }

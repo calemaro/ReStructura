@@ -1,4 +1,4 @@
-# PlanFloorViewer
+# ReStructura
 
 A local-only desktop app for documenting **what is inside your walls and floors** during a
 renovation — pipes, cables, conduit, junction boxes — before they get covered up again.
@@ -7,9 +7,10 @@ Load a floor plan, click the exact spot where something runs, and attach photos,
 measurements to that point. When the wall is closed and you need to drill two years later,
 the record is still there.
 
-> **Status: early MVP.** Projects with multiple levels, plan import, zip export/import, pins
-> with editable notes, undo/redo, English and Italian. Photos, categories and measurements are
-> next — tracked in the issues.
+> **Status: MVP complete (v0.2.0).** Projects with multiple levels, plan import, zip export/import,
+> pins with notes, category, measurements and photos, undo/redo, copy/paste, right-click menus,
+> English and Italian. Next: release packaging for Linux, macOS and Windows, then rooms, scale
+> calibration and search.
 
 ---
 
@@ -68,9 +69,9 @@ project moves its folder to the system trash.
 
 | OS | Data directory |
 | --- | --- |
-| Linux | `~/.local/share/com.planfloorviewer.app/projects/` |
-| macOS | `~/Library/Application Support/com.planfloorviewer.app/projects/` |
-| Windows | `%APPDATA%\com.planfloorviewer.app\projects\` |
+| Linux | `~/.local/share/com.restructura.app/projects/` |
+| macOS | `~/Library/Application Support/com.restructura.app/projects/` |
+| Windows | `%APPDATA%\com.restructura.app\projects\` |
 
 Resolved through Tauri's path API — never hardcoded.
 
@@ -109,6 +110,17 @@ All commands below run **from the repository root**.
 npm install     # first time only — also copies Leaflet into src/public/vendor
 npm run dev     # development: Vite serves the frontend, Tauri opens the window, both reload on save
 npm run build   # release: bundles the frontend into dist/ and builds native installers
+```
+
+Release packages land in `src-tauri/target/release/bundle/` — `.rpm`, `.deb` and `.AppImage`
+on Linux. The build script sets `NO_STRIP=true`: the `strip` binary shipped inside
+`linuxdeploy` predates the `.relr.dyn` section that Fedora's toolchain emits and aborts the
+AppImage bundle otherwise.
+
+To install the Fedora package after building:
+
+```bash
+sudo dnf install ./src-tauri/target/release/bundle/rpm/ReStructura-0.2.0-1.x86_64.rpm
 ```
 
 Project layout:
@@ -182,8 +194,9 @@ Confirmed working on the primary development machine:
 **Skeleton (done)** — plan loads with zoom/pan, pins are added and deleted from the UI and
 persist in SQLite, interface in English and Italian.
 
-**MVP** — pin editor with notes and measurements, photo attachment and gallery, categories
-with selectable colour scheme, multiple levels, context menu, plan import from the UI.
+**MVP (done, v0.2.0)** — projects, levels, plan import, zip export/import, pin editor with notes,
+categories with selectable colour scheme, measurements, photos with gallery, undo/redo,
+selection and copy/paste, edit mode, right-click menus.
 
 **Later** — importing architects' drawings (PDF raster, SVG layers, DXF/DWG), scale
 calibration so distances read in centimetres, backup/restore bundles, search, printable
