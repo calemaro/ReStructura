@@ -250,3 +250,11 @@ input.invalid { outline: 2px solid #b3261e; outline-offset: -1px; }
 .pin-icon.editing { opacity: 0.55; outline: 2px dashed #a85d0c; outline-offset: 3px; border-radius: 50%; }
 .plan.moving { cursor: crosshair; }
 button[aria-pressed="true"]#pin-edit-pos { background: #a85d0c; border-color: #a85d0c; color: #fff; }
+
+/* ---- context menu ------------------------------------------------------------------ */
+.ctx-menu { position: fixed; z-index: 1300; min-width: 190px; padding: 5px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); display: grid; }
+.ctx-item { display: block; width: 100%; text-align: left; font: inherit; padding: 6px 12px; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; }
+.ctx-item:hover:not(:disabled), .ctx-item:focus-visible { background: var(--accent); color: #fff; outline: none; }
+.ctx-item:disabled { opacity: 0.45; cursor: default; }
+.ctx-sep { height: 1px; background: var(--rule); margin: 4px 6px; }
