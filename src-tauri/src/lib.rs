@@ -16,6 +16,7 @@
 //!     (`level_id` here  <->  `{ levelId: 1 }` there).
 
 mod db;
+mod photos;
 mod projects;
 
 use std::path::{Path, PathBuf};
@@ -218,6 +219,42 @@ fn set_measurements(state: State<AppState>, pin_id: i64, list: Vec<db::Measureme
 }
 
 // ---------------------------------------------------------------------------
+// photos
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+fn list_photos(state: State<AppState>, pin_id: i64) -> R<Vec<db::Photo>> {
+    with_project(&state, |conn, dir| {
+        Ok(db::list_photos(conn, pin_id).map_err(s)?.into_iter().map(|p| photos::with_files(dir, p)).collect())
+    })
+}
+
+/// Copy the picked files into the project and attach them to the pin.
+#[tauri::command]
+fn add_photos(state: State<AppState>, pin_id: i64, paths: Vec<String>) -> R<Vec<db::Photo>> {
+    with_project_mut(&state, |conn, dir| {
+        paths.iter().map(|p| photos::add(dir, conn, pin_id, Path::new(p)).map(|ph| photos::with_files(dir, ph))).collect()
+    })
+}
+
+#[tauri::command]
+fn remove_photo(state: State<AppState>, id: i64) -> R<db::Photo> {
+    with_project_mut(&state, |conn, dir| photos::remove(dir, conn, id).map(|p| photos::with_files(dir, p)))
+}
+
+#[tauri::command]
+fn restore_photo(state: State<AppState>, photo: db::Photo) -> R<db::Photo> {
+    with_project_mut(&state, |conn, dir| photos::restore(dir, conn, &photo).map(|p| photos::with_files(dir, p)))
+}
+
+#[tauri::command]
+fn set_photo_caption(state: State<AppState>, id: i64, caption: String) -> R<db::Photo> {
+    with_project_mut(&state, |conn, dir| {
+        db::set_caption(conn, id, &caption).map_err(s)?.map(|p| photos::with_files(dir, p)).ok_or_else(|| "photo not found".to_string())
+    })
+}
+
+// ---------------------------------------------------------------------------
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -249,6 +286,7 @@ pub fn run() {
             list_levels, import_plan,
             list_pins, add_pin, update_pin, restore_pin, delete_pin,
             list_measurements, set_measurements,
+            list_photos, add_photos, remove_photo, restore_photo, set_photo_caption,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

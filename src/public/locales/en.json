@@ -94,5 +94,21 @@
   "meas.remove": "Remove",
   "meas.invalid": "Not a length — use e.g. 112, 112 cm or 1.12 m",
   "meas.hint": "Measured to the centre of the item, in centimetres. Type 112, 112 cm or 1.12 m.",
-  "history.editMeasurements": "edit measurements"
+  "history.editMeasurements": "edit measurements",
+  "photos.title": "Photos",
+  "photos.attach": "Attach photos…",
+  "photos.pick": "Attach photos",
+  "photos.none": "No photos yet.",
+  "photos.captionPlaceholder": "Caption — what does this photo show?",
+  "photos.remove": "Remove photo",
+  "photos.removeConfirm": "Remove this photo from the pin? It can be undone with Ctrl+Z.",
+  "photos.added": "{n} photo(s) attached",
+  "photos.removed": "Photo removed",
+  "photos.counter": "{i} of {n}",
+  "viewer.close": "Close",
+  "viewer.prev": "Previous",
+  "viewer.next": "Next",
+  "history.addPhotos": "attach photos",
+  "history.removePhoto": "remove photo",
+  "history.caption": "edit caption"
 }
