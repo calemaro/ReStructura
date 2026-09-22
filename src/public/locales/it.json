@@ -123,5 +123,15 @@
   "history.movePin": "spostamento punto",
   "history.pastePins": "incolla punti",
   "history.deletePins": "eliminazione punti",
-  "shortcuts.hint": "Ctrl+A seleziona tutto · Ctrl+C/X/V copia, taglia, incolla · Canc · Ctrl+Z annulla"
+  "shortcuts.hint": "Ctrl+A seleziona tutto · Ctrl+C/X/V copia, taglia, incolla · Canc · Ctrl+Z annulla",
+  "menu.addPinHere": "Aggiungi punto qui",
+  "menu.pasteHere": "Incolla qui",
+  "menu.fitView": "Adatta vista",
+  "menu.open": "Apri",
+  "menu.editPosition": "Modifica posizione",
+  "menu.copy": "Copia",
+  "menu.delete": "Elimina",
+  "menu.deleteMany": "Elimina {n} punti",
+  "menu.copyMany": "Copia {n} punti",
+  "menu.showPhotos": "Mostra foto"
 }

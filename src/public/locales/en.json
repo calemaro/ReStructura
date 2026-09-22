@@ -123,5 +123,15 @@
   "history.movePin": "move pin",
   "history.pastePins": "paste pins",
   "history.deletePins": "delete pins",
-  "shortcuts.hint": "Ctrl+A select all · Ctrl+C/X/V copy, cut, paste · Delete · Ctrl+Z undo"
+  "shortcuts.hint": "Ctrl+A select all · Ctrl+C/X/V copy, cut, paste · Delete · Ctrl+Z undo",
+  "menu.addPinHere": "Add pin here",
+  "menu.pasteHere": "Paste here",
+  "menu.fitView": "Fit view",
+  "menu.open": "Open",
+  "menu.editPosition": "Edit position",
+  "menu.copy": "Copy",
+  "menu.delete": "Delete",
+  "menu.deleteMany": "Delete {n} pins",
+  "menu.copyMany": "Copy {n} pins",
+  "menu.showPhotos": "Show photos"
 }

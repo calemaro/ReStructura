@@ -68,3 +68,4 @@ export async function pickSavePath(title, defaultName) {
   return dialog.save({ title, defaultPath: defaultName,
     filters: [{ name: "Project archive", extensions: ["zip"] }] });
 }
+

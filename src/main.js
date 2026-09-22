@@ -18,7 +18,7 @@ import * as api from "./api.js";
 import * as history from "./history.js";
 import * as projects from "./projects.js";
 import { t, setLanguage, detectLanguage, currentLanguage, SUPPORTED } from "./i18n.js";
-import { setStatus, showError, askText } from "./ui.js";
+import { setStatus, showError, askText, showContextMenu } from "./ui.js";
 import { CATEGORIES, SCHEMES, colourFor, pinIcon } from "./categories.js";
 import { parseCm, formatCm, inputCm } from "./units.js";
 
@@ -429,6 +429,7 @@ function addMarker(pin) {
       }
       showPin(pin.id);
     })
+  marker.on("contextmenu", (e) => { L.DomEvent.stop(e); pinMenu(pin.id, { x: e.originalEvent.clientX, y: e.originalEvent.clientY }); });
   pins.set(pin.id, { pin, marker });
   applyFilter(); renderLegend();
   return marker;
@@ -477,6 +478,38 @@ async function movePinTo(id, latlng) {
   };
   try { await history.run({ label: t("history.movePin"), do: () => apply(after), undo: () => apply(before) }); }
   catch (err) { showError(err); }
+}
+
+// ---- right-click menus (#11): drawn by the app, same actions as buttons and keys ------
+// (A native GTK popup opened from JavaScript is dismissed instantly on Wayland — it
+// needs the originating input event, which is gone by the time the call reaches Rust.
+// The in-app menu behaves identically on Linux, macOS and Windows.)
+function planMenu(latlng, at) {
+  const items = [
+    { text: t("menu.addPinHere"), action: () => createPinAt(latlng) },
+    { text: t("menu.pasteHere"), enabled: clipboard.length > 0, action: () => { cursorLatLng = latlng; pasteClipboard(); } },
+    { separator: true },
+    { text: t("menu.fitView"), action: () => map && map.fitBounds(bounds) },
+  ];
+  showContextMenu(items, at);
+}
+function pinMenu(id, at) {
+  // Right-clicking a pin outside the current selection selects just that pin.
+  if (!selection.has(id)) { selection.clear(); selection.add(id); refreshIcons(); }
+  const n = selection.size;
+  const items = [
+    { text: t("menu.open"), action: () => showPin(id) },
+    { text: t("menu.showPhotos"), action: async () => {
+        showPin(id);
+        try { const list = await api.listPhotos(id); if (selectedId === id) { renderPhotos(list); if (list.length) openViewer(0); else setStatus(t("photos.none")); } }
+        catch (err) { showError(err); }
+      } },
+    { text: t("menu.editPosition"), action: () => { showPin(id); setEditing(id); } },
+    { separator: true },
+    { text: n > 1 ? t("menu.copyMany", { n }) : t("menu.copy"), action: () => copySelection().catch(showError) },
+    { text: n > 1 ? t("menu.deleteMany", { n }) : t("menu.delete"), action: () => deleteSelection() },
+  ];
+  showContextMenu(items, at);
 }
 
 // ---- clipboard and multi-pin operations (#13) ---------------------------------------
@@ -769,6 +802,7 @@ async function showLevel(lvl) {
     if (selection.size) { hidePanel(); }
     setStatus(t("status.clicked", toPixel(e.latlng)));
   });
+  map.on("contextmenu", (e) => { if (!placing && editingId == null) planMenu(e.latlng, { x: e.originalEvent.clientX, y: e.originalEvent.clientY }); });
   map.on("mousemove", (e) => { cursorLatLng = e.latlng; });
   map.on("mouseout", () => { cursorLatLng = null; });
 
@@ -822,7 +856,11 @@ async function main() {
 }
 
 // The webview's default right-click menu (back / forward / reload / inspect) is a
-// browser artefact. Suppress it in release builds; keep it in development for Inspect.
-if (import.meta.env.PROD) document.addEventListener("contextmenu", (e) => e.preventDefault());
+// browser artefact. The plan has its own native menu, so it is suppressed there in
+// every build; elsewhere it is suppressed in release builds only, keeping Inspect
+// reachable from the panel or toolbar during development.
+document.addEventListener("contextmenu", (e) => {
+  if (import.meta.env.PROD || planEl.contains(e.target)) e.preventDefault();
+});
 
 main().catch(showError);
