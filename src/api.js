@@ -37,12 +37,25 @@ export const deletePin  = (id)                         => invoke("delete_pin", {
 export const listMeasurements = (pinId)       => invoke("list_measurements", { pinId });
 export const setMeasurements  = (pinId, list) => invoke("set_measurements", { pinId, list });
 
+// ---- photos --------------------------------------------------------------------------
+export const listPhotos      = (pinId)        => invoke("list_photos", { pinId });
+export const addPhotos       = (pinId, paths) => invoke("add_photos", { pinId, paths });
+export const removePhoto     = (id)           => invoke("remove_photo", { id });
+export const restorePhoto    = (photo)        => invoke("restore_photo", { photo });
+export const setPhotoCaption = (id, caption)  => invoke("set_photo_caption", { id, caption });
+
 // ---- native file dialogs (tauri-plugin-dialog) ---------------------------------------
 const dialog = tauri?.dialog;
 export async function pickImage(title) {
   if (!dialog) return notDesktop();
   return dialog.open({ title, multiple: false, directory: false,
     filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp"] }] });
+}
+export async function pickImages(title) {
+  if (!dialog) return notDesktop();
+  const r = await dialog.open({ title, multiple: true, directory: false,
+    filters: [{ name: "Photos", extensions: ["jpg", "jpeg", "png", "webp"] }] });
+  return r == null ? [] : Array.isArray(r) ? r : [r];
 }
 export async function pickZip(title) {
   if (!dialog) return notDesktop();

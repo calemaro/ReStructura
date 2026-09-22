@@ -87,6 +87,12 @@
           <dd><input id="pin-label" type="text" autocomplete="off" maxlength="120" data-i18n-attr="placeholder:panel.labelPlaceholder"></dd>
           <dt><label for="pin-notes" data-i18n="panel.notes"></label></dt>
           <dd><textarea id="pin-notes" rows="7" data-i18n-attr="placeholder:panel.notesPlaceholder"></textarea></dd>
+          <dt data-i18n="photos.title"></dt>
+          <dd class="photos">
+            <div id="photo-grid" class="photo-grid"></div>
+            <p id="photos-none" class="photos-none" data-i18n="photos.none"></p>
+            <button id="btn-attach" type="button" data-i18n="photos.attach"></button>
+          </dd>
           <dt data-i18n="meas.title"></dt>
           <dd class="meas">
             <div class="meas-row">
@@ -131,6 +137,25 @@
           <p id="chooser-where" class="chooser-where mono"></p>
         </div>
       </section>
+
+      <!-- Full-size photo viewer -->
+      <div id="viewer" class="viewer" hidden>
+        <button id="viewer-close" type="button" class="viewer-btn close" data-i18n-attr="title:viewer.close,aria-label:viewer.close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <button id="viewer-prev" type="button" class="viewer-btn prev" data-i18n-attr="title:viewer.prev,aria-label:viewer.prev">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg>
+        </button>
+        <button id="viewer-next" type="button" class="viewer-btn next" data-i18n-attr="title:viewer.next,aria-label:viewer.next">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg>
+        </button>
+        <div class="viewer-stage" id="viewer-stage"><img id="viewer-img" alt=""></div>
+        <div class="viewer-foot">
+          <span id="viewer-counter" class="mono"></span>
+          <input id="viewer-caption" type="text" maxlength="200" autocomplete="off" data-i18n-attr="placeholder:photos.captionPlaceholder">
+          <button id="viewer-remove" type="button" class="danger" data-i18n="photos.remove"></button>
+        </div>
+      </div>
 
       <!-- Small text prompt (the webview has no window.prompt) -->
       <dialog id="ask" class="ask">

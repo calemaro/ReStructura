@@ -284,6 +284,7 @@ pub fn export_zip(dir: &Path, dest: &Path) -> R<()> {
         for entry in fs::read_dir(cur).map_err(io_err("reading folder"))? {
             let path = entry.map_err(io_err("reading folder"))?.path();
             let name = path.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/");
+            if name == ".trash" || name.starts_with(".trash/") { continue; } // removed photos stay behind
             if path.is_dir() {
                 zip.add_directory(format!("{name}/"), opts).map_err(io_err("zip"))?;
                 walk(zip, opts, root, &path)?;
@@ -336,7 +337,7 @@ pub fn import_zip(root: &Path, zip_path: &Path) -> R<ProjectInfo> {
         let Some(rel) = entry.enclosed_name() else { continue }; // refuses "../" tricks
         let rel = rel.to_string_lossy().replace('\\', "/");
         let Some(rel) = rel.strip_prefix(&prefix) else { continue };
-        if rel.is_empty() || rel.ends_with("plan.db-wal") || rel.ends_with("plan.db-shm") { continue; }
+        if rel.is_empty() || rel.ends_with("plan.db-wal") || rel.ends_with("plan.db-shm") || rel.starts_with(".trash/") { continue; }
         let out = dir.join(rel);
         if entry.is_dir() {
             fs::create_dir_all(&out).map_err(io_err("creating folder"))?;

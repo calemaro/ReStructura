@@ -76,12 +76,15 @@ function showPin(id, { focus = false } = {}) {
   setSaveState("");
   panelEl.hidden = false;
   renderMeasurements([]);
+  renderPhotos([]);
   api.listMeasurements(id).then((list) => { if (selectedId === id) renderMeasurements(list); }).catch(showError);
+  api.listPhotos(id).then((list) => { if (selectedId === id) renderPhotos(list); }).catch(showError);
   if (focus) { labelInput.focus(); labelInput.select(); }
 }
 function hidePanel() {
   flushSave();
   flushMeasSave();
+  if (!viewerEl.hidden) closeViewer();
   panelEl.hidden = true;
   if (selectedId != null) pins.get(selectedId)?.marker.setIcon(pinIcon(colourFor(scheme, pins.get(selectedId).pin.category)));
   selectedId = null;
@@ -139,7 +142,7 @@ async function flushSave() {
     before, after,
     do: () => apply(cmd.after),
     undo: () => apply(cmd.before),
-    merge(next) { if (next.pinId !== id || !next.before || next.measBefore) return false; cmd.after = next.after; return true; },
+    merge(next) { if (next.pinId !== id || !next.before || next.measBefore || next.capBefore != null) return false; cmd.after = next.after; return true; },
   };
   try {
     await history.run(cmd);
@@ -155,6 +158,128 @@ catSelect.addEventListener("change", () => { swatchEl.style.background = colourF
 labelInput.addEventListener("blur", flushSave);
 notesInput.addEventListener("blur", flushSave);
 window.addEventListener("beforeunload", flushSave);
+
+// ---- photos --------------------------------------------------------------------------
+// Files are copied into the project (photos/<pinId>/) with a thumbnail. Attach and
+// remove are undoable: a removed photo's files wait in the project's .trash.
+const photoGrid = $("#photo-grid");
+const photosNone = $("#photos-none");
+const viewerEl = $("#viewer");
+const viewerImg = $("#viewer-img");
+const viewerCaption = $("#viewer-caption");
+let photos = [];                 // the selected pin's photos, in order
+let viewerIndex = -1;
+
+function renderPhotos(list) {
+  photos = list;
+  photoGrid.innerHTML = "";
+  photosNone.hidden = list.length > 0;
+  list.forEach((ph, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.title = ph.caption;
+    const img = document.createElement("img"); img.src = api.fileUrl(ph.thumb); img.alt = ph.caption; img.loading = "lazy";
+    b.append(img);
+    b.onclick = () => openViewer(i);
+    photoGrid.append(b);
+  });
+  if (!viewerEl.hidden) {
+    if (!list.length) closeViewer(); else showViewerIndex(Math.min(viewerIndex, list.length - 1));
+  }
+}
+
+async function attachPhotosFlow() {
+  if (selectedId == null) return;
+  const id = selectedId;
+  try {
+    const paths = await api.pickImages(t("photos.pick"));
+    if (!paths.length) return;
+    let added = null;                                    // remembered so redo restores the same rows
+    await history.run({
+      label: t("history.addPhotos"),
+      do: async () => {
+        added = added ? await Promise.all(added.map((ph) => api.restorePhoto(ph))) : await api.addPhotos(id, paths);
+        if (selectedId === id) renderPhotos(await api.listPhotos(id));
+        setStatus(t("photos.added", { n: added.length }));
+      },
+      undo: async () => {
+        for (const ph of added) await api.removePhoto(ph.id);
+        if (selectedId === id) renderPhotos(await api.listPhotos(id));
+      },
+    });
+  } catch (err) { showError(err); }
+}
+$("#btn-attach").addEventListener("click", attachPhotosFlow);
+
+async function removePhotoFlow(index) {
+  const ph = photos[index];
+  if (!ph || !confirm(t("photos.removeConfirm"))) return;
+  const id = ph.pinId;
+  let snapshot = null;
+  try {
+    await history.run({
+      label: t("history.removePhoto"),
+      do: async () => {
+        snapshot = await api.removePhoto(ph.id);
+        if (selectedId === id) renderPhotos(await api.listPhotos(id));
+        setStatus(t("photos.removed"));
+      },
+      undo: async () => {
+        await api.restorePhoto(snapshot);
+        if (selectedId === id) renderPhotos(await api.listPhotos(id));
+      },
+    });
+  } catch (err) { showError(err); }
+}
+
+// ---- viewer
+function openViewer(i) { viewerEl.hidden = false; showViewerIndex(i); }
+function closeViewer() { flushCaption(); viewerEl.hidden = true; viewerIndex = -1; }
+function showViewerIndex(i) {
+  if (!photos.length) return closeViewer();
+  flushCaption();
+  viewerIndex = (i + photos.length) % photos.length;
+  const ph = photos[viewerIndex];
+  viewerImg.src = api.fileUrl(ph.file);
+  viewerImg.alt = ph.caption;
+  viewerCaption.value = ph.caption;
+  $("#viewer-counter").textContent = t("photos.counter", { i: viewerIndex + 1, n: photos.length });
+  $("#viewer-prev").disabled = $("#viewer-next").disabled = photos.length < 2;
+}
+$("#viewer-close").addEventListener("click", closeViewer);
+$("#viewer-prev").addEventListener("click", () => showViewerIndex(viewerIndex - 1));
+$("#viewer-next").addEventListener("click", () => showViewerIndex(viewerIndex + 1));
+$("#viewer-remove").addEventListener("click", () => removePhotoFlow(viewerIndex));
+viewerEl.addEventListener("click", (e) => { if (e.target === viewerEl || e.target.id === "viewer-stage") closeViewer(); });
+
+// caption: autosave, one undo step per photo edit (consecutive edits of the same photo merge)
+let captionTimer = null;
+let captionDirty = null;         // photo id with unsaved caption text
+function scheduleCaption() {
+  if (viewerIndex < 0) return;
+  captionDirty = photos[viewerIndex].id;
+  clearTimeout(captionTimer);
+  captionTimer = setTimeout(flushCaption, 600);
+}
+async function flushCaption() {
+  clearTimeout(captionTimer);
+  if (captionDirty == null) return;
+  const id = captionDirty; captionDirty = null;
+  const ph = photos.find((p) => p.id === id);
+  if (!ph) return;
+  const before = ph.caption, after = viewerCaption.value.trim();
+  if (before === after) return;
+  const apply = async (text) => {
+    const updated = await api.setPhotoCaption(id, text);
+    const i = photos.findIndex((p) => p.id === id);
+    if (i >= 0) { photos[i] = updated; photoGrid.children[i]?.setAttribute("title", updated.caption); }
+    if (viewerIndex === i) viewerCaption.value = updated.caption;
+  };
+  const cmd = { label: t("history.caption"), photoId: id, capBefore: before, capAfter: after,
+    do: () => apply(cmd.capAfter), undo: () => apply(cmd.capBefore),
+    merge(next) { if (next.photoId !== id || next.capBefore == null) return false; cmd.capAfter = next.capAfter; return true; } };
+  try { await history.run(cmd); } catch (err) { showError(err); }
+}
+viewerCaption.addEventListener("input", scheduleCaption);
+viewerCaption.addEventListener("blur", flushCaption);
 
 // ---- measurements --------------------------------------------------------------------
 // The pin's measurements are edited as one list. Height and depth are fixed rows;
@@ -268,6 +393,7 @@ $("#pin-delete").addEventListener("click", async () => {
   await flushMeasSave();
   const snapshot = { ...pins.get(id).pin };
   const measSnapshot = await api.listMeasurements(id);   // removed with the pin; undo puts them back
+  const photoSnapshot = await api.listPhotos(id);        // rows go with the pin; the files stay, so rows are re-inserted on undo
   try {
     await history.run({
       label: t("history.deletePin"),
@@ -280,6 +406,7 @@ $("#pin-delete").addEventListener("click", async () => {
       undo: async () => {
         const pin = await api.restorePin(snapshot);
         if (measSnapshot.length) await api.setMeasurements(pin.id, measSnapshot);
+        for (const ph of photoSnapshot) await api.restorePhoto(ph);
         addMarker(pin);
         showPin(pin.id);
       },
@@ -401,6 +528,13 @@ undoBtn.addEventListener("click", doUndo);
 redoBtn.addEventListener("click", doRedo);
 
 document.addEventListener("keydown", (e) => {
+  if (!viewerEl.hidden) {
+    if (e.key === "Escape") { e.preventDefault(); closeViewer(); return; }
+    if (document.activeElement !== viewerCaption) {
+      if (e.key === "ArrowLeft") { e.preventDefault(); showViewerIndex(viewerIndex - 1); return; }
+      if (e.key === "ArrowRight") { e.preventDefault(); showViewerIndex(viewerIndex + 1); return; }
+    }
+  }
   if (e.key === "Escape") { if (placing) setPlacing(false); return; }
   const mod = e.ctrlKey || e.metaKey;
   if (!mod) return;
@@ -408,7 +542,7 @@ document.addEventListener("keydown", (e) => {
   if (history.focusIsInTextField()) {
     // While there is unsaved typing, Ctrl+Z is the text field's own undo.
     // Once saved (or nothing typed) it means the app's undo.
-    if (dirtyId != null || measDirtyId != null || !["z", "y"].includes(k)) return;
+    if (dirtyId != null || measDirtyId != null || captionDirty != null || !["z", "y"].includes(k)) return;
     document.activeElement.blur();
   }
   if (k === "z" && !e.shiftKey) { e.preventDefault(); doUndo(); }

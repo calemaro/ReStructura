@@ -94,5 +94,21 @@
   "meas.remove": "Rimuovi",
   "meas.invalid": "Non è una lunghezza — usa es. 112, 112 cm o 1,12 m",
   "meas.hint": "Misurate al centro dell'elemento, in centimetri. Scrivi 112, 112 cm o 1,12 m.",
-  "history.editMeasurements": "modifica misure"
+  "history.editMeasurements": "modifica misure",
+  "photos.title": "Foto",
+  "photos.attach": "Allega foto…",
+  "photos.pick": "Allega foto",
+  "photos.none": "Nessuna foto ancora.",
+  "photos.captionPlaceholder": "Didascalia — cosa mostra questa foto?",
+  "photos.remove": "Rimuovi foto",
+  "photos.removeConfirm": "Rimuovere questa foto dal punto? Si può annullare con Ctrl+Z.",
+  "photos.added": "{n} foto allegate",
+  "photos.removed": "Foto rimossa",
+  "photos.counter": "{i} di {n}",
+  "viewer.close": "Chiudi",
+  "viewer.prev": "Precedente",
+  "viewer.next": "Successiva",
+  "history.addPhotos": "allega foto",
+  "history.removePhoto": "rimozione foto",
+  "history.caption": "modifica didascalia"
 }

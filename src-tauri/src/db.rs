@@ -46,6 +46,24 @@ pub struct Pin {
 }
 fn default_category() -> String { "other".into() }
 
+/// A photo attached to a pin. Both paths are relative to the project folder
+/// ("photos/12/2026-09-22-143012-wall.jpg"); `file`/`thumb` are filled in with
+/// absolute paths for this machine when handed to the frontend, never stored.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Photo {
+    pub id: i64,
+    pub pin_id: i64,
+    pub file_path: String,
+    pub thumb_path: String,
+    pub caption: String,
+    pub created_at: String,
+    #[serde(default)]
+    pub file: String,
+    #[serde(default)]
+    pub thumb: String,
+}
+
 /// One measured distance on a pin, always in centimetres.
 /// `kind`: "height" (above finished floor), "depth" (from the finished wall
 /// surface) or "distance" (horizontal, from the named `reference`).
@@ -101,6 +119,7 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             id          INTEGER PRIMARY KEY,
             pin_id      INTEGER NOT NULL REFERENCES pins(id) ON DELETE CASCADE,
             file_path   TEXT    NOT NULL,
+            thumb_path  TEXT    NOT NULL DEFAULT '',
             caption     TEXT    NOT NULL DEFAULT '',
             created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
          );
@@ -131,7 +150,7 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
 /// and is applied in order, so a database from any earlier release ends up
 /// current. `CREATE TABLE IF NOT EXISTS` above already handles brand-new
 /// files, which is why a fresh database starts at the latest version.
-const DB_VERSION: i64 = 3;
+const DB_VERSION: i64 = 4;
 
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let mut v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
@@ -141,6 +160,8 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         let has_category: bool = conn
             .prepare("SELECT 1 FROM pragma_table_info('pins') WHERE name = 'category'")?
             .exists([])?;
+        // A brand-new file has every column (created above) and is at the latest
+        // version; an old file predates the category column and starts at 1.
         v = if has_category { DB_VERSION } else { 1 };
     }
     if v < 2 {
@@ -150,6 +171,15 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     if v < 3 {
         // measurements table: created by the CREATE TABLE IF NOT EXISTS block above.
         v = 3;
+    }
+    if v < 4 {
+        let has_thumb: bool = conn
+            .prepare("SELECT 1 FROM pragma_table_info('photos') WHERE name = 'thumb_path'")?
+            .exists([])?;
+        if !has_thumb {
+            conn.execute_batch("ALTER TABLE photos ADD COLUMN thumb_path TEXT NOT NULL DEFAULT '';")?;
+        }
+        v = 4;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
@@ -293,4 +323,50 @@ pub fn set_measurements(conn: &Connection, pin_id: i64, list: &[Measurement]) ->
         Ok(v) => { conn.execute_batch("COMMIT;")?; Ok(v) }
         Err(e) => { let _ = conn.execute_batch("ROLLBACK;"); Err(e) }
     }
+}
+
+// ---------------------------------------------------------------------------
+// photos
+// ---------------------------------------------------------------------------
+
+const PHOTO_COLS: &str = "id, pin_id, file_path, thumb_path, caption, created_at";
+
+fn row_to_photo(r: &rusqlite::Row<'_>) -> rusqlite::Result<Photo> {
+    Ok(Photo { id: r.get(0)?, pin_id: r.get(1)?, file_path: r.get(2)?, thumb_path: r.get(3)?, caption: r.get(4)?, created_at: r.get(5)?, file: String::new(), thumb: String::new() })
+}
+
+pub fn list_photos(conn: &Connection, pin_id: i64) -> rusqlite::Result<Vec<Photo>> {
+    let mut stmt = conn.prepare(&format!("SELECT {PHOTO_COLS} FROM photos WHERE pin_id = ?1 ORDER BY id"))?;
+    let rows = stmt.query_map([pin_id], row_to_photo)?;
+    rows.collect()
+}
+
+pub fn get_photo(conn: &Connection, id: i64) -> rusqlite::Result<Option<Photo>> {
+    conn.query_row(&format!("SELECT {PHOTO_COLS} FROM photos WHERE id = ?1"), [id], row_to_photo).optional()
+}
+
+pub fn insert_photo(conn: &Connection, pin_id: i64, file_path: &str, thumb_path: &str) -> rusqlite::Result<Photo> {
+    conn.execute(
+        "INSERT INTO photos (pin_id, file_path, thumb_path) VALUES (?1, ?2, ?3)",
+        params![pin_id, file_path, thumb_path],
+    )?;
+    Ok(get_photo(conn, conn.last_insert_rowid())?.expect("photo just inserted"))
+}
+
+/// Re-insert a removed photo row with its original id (undo).
+pub fn restore_photo(conn: &Connection, p: &Photo) -> rusqlite::Result<Photo> {
+    conn.execute(
+        "INSERT OR REPLACE INTO photos (id, pin_id, file_path, thumb_path, caption, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![p.id, p.pin_id, p.file_path, p.thumb_path, p.caption, p.created_at],
+    )?;
+    Ok(get_photo(conn, p.id)?.expect("photo just restored"))
+}
+
+pub fn set_caption(conn: &Connection, id: i64, caption: &str) -> rusqlite::Result<Option<Photo>> {
+    conn.execute("UPDATE photos SET caption = ?1 WHERE id = ?2", params![caption, id])?;
+    get_photo(conn, id)
+}
+
+pub fn delete_photo_row(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
+    conn.execute("DELETE FROM photos WHERE id = ?1", [id])
 }
