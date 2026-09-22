@@ -7,9 +7,9 @@ Load a floor plan, click the exact spot where something runs, and attach photos,
 measurements to that point. When the wall is closed and you need to drill two years later,
 the record is still there.
 
-> **Status: architecture skeleton working.** Plan loads with zoom/pan, pins are created and
-> deleted from the UI and persist in SQLite across restarts, interface in English and Italian.
-> Feature work (pin editing, photos, categories, multiple levels) is tracked in the issues.
+> **Status: early MVP.** Projects with multiple levels, plan import, zip export/import, pins
+> with editable notes, undo/redo, English and Italian. Photos, categories and measurements are
+> next — tracked in the issues.
 
 ---
 
@@ -50,13 +50,27 @@ A *level* is any plan of the same home — a floor, a mezzanine, a basement.
 `pins.x` / `pins.y` are **pixel coordinates on the plan image, origin top-left, y downwards**,
 which is what an image editor reports and what `L.CRS.Simple` maps onto directly.
 
-### Where your data lives
+### Projects
 
-| OS | Path |
+Each home is a **project**: one self-contained folder under the app's data directory.
+
+```
+projects/<slug>/
+├── project.json   manifest — name, schemaVersion, colour scheme, timestamps
+├── plan.db        this project's SQLite database
+├── plans/         plan images, one per level
+└── photos/        photos, one folder per pin
+```
+
+Every path stored in the database is relative to the project folder, so a project can be
+**exported as a plain `.zip`** and imported on another computer unchanged. Deleting a
+project moves its folder to the system trash.
+
+| OS | Data directory |
 | --- | --- |
-| Linux | `~/.local/share/com.planfloorviewer.app/` |
-| macOS | `~/Library/Application Support/com.planfloorviewer.app/` |
-| Windows | `%APPDATA%\com.planfloorviewer.app\` |
+| Linux | `~/.local/share/com.planfloorviewer.app/projects/` |
+| macOS | `~/Library/Application Support/com.planfloorviewer.app/projects/` |
+| Windows | `%APPDATA%\com.planfloorviewer.app\projects\` |
 
 Resolved through Tauri's path API — never hardcoded.
 
@@ -100,10 +114,15 @@ npm run build   # release: bundles the frontend into dist/ and builds native ins
 Project layout:
 
 ```
-src/                  frontend — index.html, main.js, i18n.js, styles.css
-src/public/           static files served as-is: locales/, assets/ (plan images), vendor/ (Leaflet)
-src-tauri/src/lib.rs  Tauri commands (the JavaScript ↔ Rust bridge)
-src-tauri/src/db.rs   SQLite schema and queries
+src/main.js             the plan screen: Leaflet map, pins, panel, add-pin mode
+src/projects.js         the main menu: list, create, import, export, delete projects
+src/history.js          undo/redo command stack
+src/api.js              every call into Rust, in one place
+src/i18n.js, ui.js      translations; small shared helpers
+src/public/             static files served as-is: locales/, assets/, vendor/ (Leaflet)
+src-tauri/src/lib.rs    Tauri commands (the JavaScript ↔ Rust bridge) and app state
+src-tauri/src/projects.rs  project folders, manifest, zip export/import, plan import
+src-tauri/src/db.rs     SQLite schema and queries
 scripts/              vendor.mjs (copies Leaflet), make_demo_plan.py (draws the sample plan)
 ```
 
