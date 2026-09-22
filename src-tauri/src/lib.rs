@@ -175,6 +175,19 @@ fn list_levels(state: State<AppState>) -> R<Vec<db::Level>> {
     })
 }
 
+#[tauri::command]
+fn rename_level(state: State<AppState>, level_id: i64, name: String) -> R<db::Level> {
+    if name.trim().is_empty() {
+        return Err("a floor needs a name".into());
+    }
+    with_project_mut(&state, |conn, dir| {
+        db::rename_level(conn, level_id, &name)
+            .map_err(s)?
+            .map(|l| with_file(dir, l))
+            .ok_or_else(|| format!("floor {level_id} does not exist"))
+    })
+}
+
 /// Calibration: the user measures one real distance and clicks its two ends on
 /// the plan, giving centimetres per pixel for this level. Pass None to clear it.
 #[tauri::command]
@@ -427,6 +440,17 @@ fn restore_photo(state: State<AppState>, photo: db::Photo) -> R<db::Photo> {
     })
 }
 
+/// Images for the printed report, as self-contained data URIs.
+#[tauri::command]
+fn report_image(state: State<AppState>, path: String) -> R<String> {
+    with_project(&state, |_, dir| photos::report_image(dir, &path))
+}
+
+#[tauri::command]
+fn plan_image(state: State<AppState>, path: String) -> R<String> {
+    with_project(&state, |_, dir| photos::plan_image(dir, &path))
+}
+
 #[tauri::command]
 fn set_photo_caption(state: State<AppState>, id: i64, caption: String) -> R<db::Photo> {
     with_project_mut(&state, |conn, dir| {
@@ -508,6 +532,7 @@ pub fn run() {
             list_levels,
             import_plan,
             set_level_scale,
+            rename_level,
             list_pins,
             add_pin,
             update_pin,
@@ -531,6 +556,8 @@ pub fn run() {
             remove_photo,
             restore_photo,
             set_photo_caption,
+            report_image,
+            plan_image,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

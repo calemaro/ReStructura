@@ -22,6 +22,7 @@ import { setStatus, showError, askText, showContextMenu } from "./ui.js";
 import { CATEGORIES, SCHEMES, colourFor, pinIcon } from "./categories.js";
 import { parseCm as parseCmRaw, formatCm as formatCmRaw, inputCm as inputCmRaw, UNIT_SYSTEMS, scaleSteps, scaleLabel } from "./units.js";
 import * as settings from "./settings.js";
+import { buildHtml as buildReport } from "./report.js";
 
 // Unit-aware wrappers: everything in this file keeps calling parseCm/formatCm/inputCm
 // and the active preference is applied in one place.
@@ -810,7 +811,7 @@ function renderRulers() {
     }
     const len = rulerLength(r);
     entry.label = L.marker(toLatLng((r.x1 + r.x2) / 2, (r.y1 + r.y2) / 2), {
-      icon: L.divIcon({ className: "", html: `<span class="ruler-label${selected ? " selected" : ""}">${escapeHtml(len == null ? "—" : formatCm(len, currentLanguage()))}</span>`, iconSize: [0, 0] }),
+      icon: L.divIcon({ className: "", html: `<span class="ruler-label${selected ? " selected" : ""}">${escapeHtml(len == null ? "?" : formatCm(len, currentLanguage()))}</span>`, iconSize: [0, 0] }),
     }).addTo(rulerLayer);
     for (const target of [entry.line, entry.label]) {
       target.on("click", (e) => { L.DomEvent.stop(e); selectRuler(r.id); });
@@ -1079,6 +1080,123 @@ async function goToHit(h) {
     showPin(h.pin.id);
     searchPanelEl.hidden = false;        // showPin hides panels; the search list stays
   } catch (err) { showError(err); }
+}
+
+// ---- printed report ---------------------------------------------------------------------
+// Gathers everything the document needs — plan images, pins with their measurements, room
+// names and photos, all as data URIs — then opens it in a window and calls print(), where
+// "Save as PDF" produces the file. Self-contained, so it prints identically anywhere.
+const reportDialog = $("#report-dialog");
+
+/** Export menu: everything that leaves the app, in one place. */
+$("#btn-export").addEventListener("click", (e) => {
+  if (!project) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  showContextMenu([
+    { text: t("export.zip"), action: exportZip },
+    { text: t("export.pdf"), action: openReportDialog },
+  ], { x: Math.max(6, r.right - 240), y: r.bottom + 4 });
+});
+
+function openReportDialog() {
+  if (!project) return;
+  $("#report-progress").hidden = true;
+  $("#report-go").disabled = false;
+  reportDialog.showModal();
+}
+
+async function exportZip() {
+  if (!project) return;
+  try {
+    const dest = await api.pickSavePath(t("export.zip"), `${project.slug}.zip`);
+    if (!dest) return;
+    await api.exportProject(project.slug, dest);
+    setStatus(t("chooser.exported", { path: dest }));
+  } catch (err) { showError(err); }
+}
+$("#report-cancel").addEventListener("click", () => reportDialog.close());
+reportDialog.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); buildAndPrint(); });
+
+async function buildAndPrint() {
+  const scopeProject = reportDialog.querySelector('input[name="report-scope"]:checked').value === "project";
+  const withPhotos = $("#report-photos").checked;
+  const progress = $("#report-progress");
+  $("#report-go").disabled = true;
+  progress.hidden = false;
+
+  try {
+    const chosen = scopeProject ? levels : levels.filter((l) => l.id === level?.id);
+    const context = await api.searchContext();                 // pins with room names and counts
+
+    // count the work first, so the progress line means something
+    let total = 0;
+    if (withPhotos) {
+      for (const h of context) if (chosen.some((l) => l.id === h.levelId)) total += h.photoCount;
+    }
+    let done = 0;
+    const tick = () => { progress.textContent = t("report.building", { done: ++done, total }); };
+    progress.textContent = t("report.building", { done: 0, total });
+
+    const floors = [];
+    for (const lvl of chosen) {
+      const planUri = await api.planImage(lvl.imagePath);
+      const { width, height } = await loadImageSize(api.fileUrl(lvl.imageFile));
+      const rooms = await api.listRooms(lvl.id);
+      const roomName = new Map(rooms.map((r) => [r.id, r.name]));
+      const pinRows = (await api.listPins(lvl.id));
+      const pins = [];
+      for (const p of pinRows) {
+        const measurements = await api.listMeasurements(p.id);
+        let photos = [];
+        if (withPhotos) {
+          const list = await api.listPhotos(p.id);
+          for (const ph of list) {
+            photos.push({ uri: await api.reportImage(ph.filePath), caption: ph.caption });
+            tick();
+          }
+        }
+        pins.push({ ...p, roomName: p.roomId != null ? roomName.get(p.roomId) : null, measurements, photos });
+      }
+      floors.push({ level: lvl, planUri, width, height, rooms, pins });
+    }
+
+    const html = buildReport({ project, floors, scheme, unit: unit(), withPhotos });
+    reportDialog.close();
+    await printHtml(html);
+  } catch (err) {
+    showError(err);
+    reportDialog.close();
+  } finally {
+    $("#report-go").disabled = false;
+    progress.hidden = true;
+  }
+}
+
+/** Print a self-contained document. The webview blocks window.open, so the report is
+ *  loaded into a hidden iframe and printed from there; the page's own @page rules then
+ *  drive the layout. Images must finish decoding first or the print comes out blank. */
+function printHtml(html) {
+  return new Promise((resolve, reject) => {
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    document.body.append(frame);
+
+    const cleanup = () => setTimeout(() => frame.remove(), 1000);
+    frame.onload = async () => {
+      try {
+        const win = frame.contentWindow;
+        const imgs = [...win.document.images];
+        await Promise.all(imgs.map((img) => img.complete ? null :
+          new Promise((r) => { img.onload = img.onerror = r; })));
+        win.focus();
+        win.print();
+        cleanup();
+        resolve();
+      } catch (err) { cleanup(); reject(err); }
+    };
+    frame.srcdoc = html;
+  });
 }
 
 // ---- settings screen --------------------------------------------------------------------
@@ -1545,6 +1663,23 @@ async function showLevel(lvl) {
   setStatus(t("status.ready"));
   return list.length;
 }
+
+$("#btn-rename-floor").addEventListener("click", async () => {
+  if (!level) return;
+  const name = await askText(t("floor.renamePrompt"), { value: level.name, placeholder: t("plan.namePlaceholder") });
+  if (!name || name === level.name) return;
+  const before = level.name;
+  const apply = async (value) => {
+    const updated = await api.renameLevel(level.id, value);
+    const i = levels.findIndex((l) => l.id === updated.id);
+    if (i >= 0) levels[i] = updated;
+    if (level?.id === updated.id) level = updated;
+    renderLevelSelect();
+    setStatus(t("floor.renamed", { name: updated.name }));
+  };
+  try { await history.run({ label: t("floor.rename"), do: () => apply(name), undo: () => apply(before) }); }
+  catch (err) { showError(err); }
+});
 
 $("#btn-fit").addEventListener("click", () => map && map.fitBounds(bounds));
 

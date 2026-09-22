@@ -673,6 +673,16 @@ pub fn delete_room(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
     conn.execute("DELETE FROM rooms WHERE id = ?1", [id])
 }
 
+/// Rename a floor. The image file keeps the name it was imported under: the
+/// floor's name is a label, not an identity.
+pub fn rename_level(conn: &Connection, id: i64, name: &str) -> rusqlite::Result<Option<Level>> {
+    conn.execute(
+        "UPDATE levels SET name = ?1 WHERE id = ?2",
+        params![name.trim(), id],
+    )?;
+    get_level(conn, id)
+}
+
 /// Record (or clear, with None) how many centimetres one image pixel represents.
 pub fn set_level_scale(
     conn: &Connection,

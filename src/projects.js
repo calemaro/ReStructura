@@ -114,7 +114,7 @@ function renderList() {
     const exp = document.createElement("button"); exp.type = "button"; exp.textContent = t("chooser.export");
     exp.onclick = async () => {
       try {
-        const dest = await api.pickSavePath(t("chooser.export"), `${p.slug}.planfloor.zip`);
+        const dest = await api.pickSavePath(t("chooser.export"), `${p.slug}.zip`);
         if (!dest) return;
         await api.exportProject(p.slug, dest);
         setStatus(t("chooser.exported", { path: dest }));
