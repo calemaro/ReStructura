@@ -30,6 +30,7 @@ export const importPlan = (srcPath, name)  => invoke("import_plan", { srcPath, n
 export const listPins   = (levelId)                    => invoke("list_pins", { levelId });
 export const addPin     = (levelId, x, y, label, notes, category = "other") => invoke("add_pin", { levelId, x, y, label, notes, category });
 export const updatePin  = (id, label, notes, category)  => invoke("update_pin", { id, label, notes, category });
+export const movePin    = (id, x, y)                   => invoke("move_pin", { id, x, y });
 export const restorePin = (pin)                        => invoke("restore_pin", { pin });
 export const deletePin  = (id)                         => invoke("delete_pin", { id });
 

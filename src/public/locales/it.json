@@ -10,7 +10,7 @@
   "panel.positionValue": "x {x} px · y {y} px",
   "panel.created": "Registrato",
   "panel.close": "Chiudi",
-  "status.ready": "Rotella per zoom · trascina per spostare · clicca un punto per aprirlo",
+  "status.ready": "Rotella per zoom · trascina per spostare · clicca un punto per aprirlo · Ctrl+A / C / X / V / Canc agiscono sui punti",
   "status.clicked": "Click a x {x} px, y {y} px",
   "toolbar.addPin": "Aggiungi punto",
   "toolbar.addPinActive": "Clicca sulla planimetria per posizionare il punto…",
@@ -110,5 +110,18 @@
   "viewer.next": "Successiva",
   "history.addPhotos": "allega foto",
   "history.removePhoto": "rimozione foto",
-  "history.caption": "modifica didascalia"
+  "history.caption": "modifica didascalia",
+  "panel.editPosition": "Modifica posizione",
+  "panel.donePosition": "Fatto",
+  "status.editPosition": "Clicca sulla planimetria dove deve stare il punto — ogni click lo sposta. Premi Fatto o Esc quando hai finito",
+  "status.selected": "{n} punti selezionati",
+  "status.copied": "{n} punto/i copiati",
+  "status.pasted": "{n} punto/i incollati",
+  "status.deletedMany": "{n} punti eliminati",
+  "panel.deleteManyConfirm": "Eliminare {n} punti? Si può annullare con Ctrl+Z.",
+  "status.nothingToPaste": "Niente da incollare",
+  "history.movePin": "spostamento punto",
+  "history.pastePins": "incolla punti",
+  "history.deletePins": "eliminazione punti",
+  "shortcuts.hint": "Ctrl+A seleziona tutto · Ctrl+C/X/V copia, taglia, incolla · Canc · Ctrl+Z annulla"
 }

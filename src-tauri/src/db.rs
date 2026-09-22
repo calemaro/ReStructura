@@ -261,6 +261,12 @@ pub fn update_pin(conn: &Connection, id: i64, label: &str, notes: &str, category
     get_pin(conn, id)
 }
 
+/// Move a pin to new plan-pixel coordinates (edit mode drag).
+pub fn move_pin(conn: &Connection, id: i64, x: f64, y: f64) -> rusqlite::Result<Option<Pin>> {
+    conn.execute("UPDATE pins SET x = ?1, y = ?2 WHERE id = ?3", params![x, y, id])?;
+    get_pin(conn, id)
+}
+
 /// Re-insert a pin exactly as it was, keeping its original id and timestamp.
 /// Used by undo: a restored pin must keep its identity so anything that
 /// referenced it (photos, later) lines up again.

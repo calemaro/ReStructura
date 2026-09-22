@@ -10,7 +10,7 @@
   "panel.positionValue": "x {x} px · y {y} px",
   "panel.created": "Recorded",
   "panel.close": "Close",
-  "status.ready": "Scroll to zoom · drag to pan · click a pin to open it",
+  "status.ready": "Scroll to zoom · drag to pan · click a pin to open it · Ctrl+A / C / X / V / Delete work on pins",
   "status.clicked": "Clicked at x {x} px, y {y} px",
   "toolbar.addPin": "Add pin",
   "toolbar.addPinActive": "Click the plan to place the pin…",
@@ -110,5 +110,18 @@
   "viewer.next": "Next",
   "history.addPhotos": "attach photos",
   "history.removePhoto": "remove photo",
-  "history.caption": "edit caption"
+  "history.caption": "edit caption",
+  "panel.editPosition": "Edit position",
+  "panel.donePosition": "Done",
+  "status.editPosition": "Click the plan where the pin should go — each click moves it. Press Done or Esc when finished",
+  "status.selected": "{n} pins selected",
+  "status.copied": "{n} pin(s) copied",
+  "status.pasted": "{n} pin(s) pasted",
+  "status.deletedMany": "{n} pins deleted",
+  "panel.deleteManyConfirm": "Delete {n} pins? This can be undone with Ctrl+Z.",
+  "status.nothingToPaste": "Nothing to paste",
+  "history.movePin": "move pin",
+  "history.pastePins": "paste pins",
+  "history.deletePins": "delete pins",
+  "shortcuts.hint": "Ctrl+A select all · Ctrl+C/X/V copy, cut, paste · Delete · Ctrl+Z undo"
 }
