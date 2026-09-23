@@ -70,12 +70,27 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6h18v12H3z"/><path d="M3 12h18M9 6v6M15 12v6"/></svg>
           <span data-i18n="editor.wall"></span>
         </button>
+        <button type="button" data-tool="door" data-i18n-attr="title:editor.doorTip">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 20h4M20 20h2" stroke-width="3"/><path d="M6 20V6"/><path d="M6 6a14 14 0 0 1 14 14" stroke-width="1.2"/></svg>
+          <span data-i18n="editor.door"></span>
+        </button>
+        <button type="button" data-tool="window" data-i18n-attr="title:editor.windowTip">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M1 12h3M20 12h3" stroke-width="6"/><path d="M4 8h16M4 16h16M4 8v8M20 8v8" stroke-width="1.4"/><path d="M4 11h16M4 13h16" stroke-width="1.2"/></svg>
+          <span data-i18n="editor.window"></span>
+        </button>
       </nav>
       <div id="editor-bar" class="editor-bar" hidden>
         <strong id="ed-tool-name" class="ed-tool-name"></strong>
-        <label class="ed-field" data-i18n-attr="title:editor.unitTip"><span data-i18n="editor.length"></span><input id="ed-length" type="text" autocomplete="off" spellcheck="false"><em class="ed-unit"></em></label>
-        <label class="ed-field" data-i18n-attr="title:editor.unitTip"><span data-i18n="editor.thickness"></span><input id="ed-thickness" type="text" autocomplete="off" spellcheck="false"><em class="ed-unit"></em></label>
-        <label class="ed-field" id="ed-image-wrap"><span data-i18n="editor.image"></span><input id="ed-image" type="range" min="0" max="100" step="5"></label>
+        <label class="ed-field" data-field="kind"><span data-i18n="editor.type"></span><select id="ed-kind"></select></label>
+        <label class="ed-field" data-field="length" data-i18n-attr="title:editor.unitTip"><span data-i18n="editor.length"></span><input id="ed-length" type="text" autocomplete="off" spellcheck="false"><em class="ed-unit"></em></label>
+        <label class="ed-field" data-field="width" data-i18n-attr="title:editor.unitTip"><span data-i18n="editor.width"></span><input id="ed-width" type="text" autocomplete="off" spellcheck="false"><em class="ed-unit"></em></label>
+        <label class="ed-field" data-field="from" data-i18n-attr="title:editor.fromTip"><span data-i18n="editor.fromCorner"></span><input id="ed-from" type="text" autocomplete="off" spellcheck="false"><em class="ed-unit"></em></label>
+        <label class="ed-field" data-field="thickness" data-i18n-attr="title:editor.unitTip"><span data-i18n="editor.thickness"></span><input id="ed-thickness" type="text" autocomplete="off" spellcheck="false"><em class="ed-unit"></em></label>
+        <span class="ed-field ed-flips" data-field="flip">
+          <button id="ed-flip-side" type="button" data-i18n-attr="title:editor.flipSideTip">⇅ <span data-i18n="editor.flipSide"></span></button>
+          <button id="ed-flip-hinge" type="button" data-i18n-attr="title:editor.flipHingeTip">⇆ <span data-i18n="editor.flipHinge"></span></button>
+        </span>
+        <label class="ed-field" data-field="image"><span data-i18n="editor.image"></span><input id="ed-image" type="range" min="0" max="100" step="5"></label>
       </div>
       <!-- Search panel -->
       <aside id="search-panel" class="panel search-panel" hidden>

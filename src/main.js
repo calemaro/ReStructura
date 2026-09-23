@@ -1212,6 +1212,7 @@ async function buildAndPrint() {
     const floors = [];
     for (const lvl of chosen) {
       const walls = await api.listWalls(lvl.id);
+      const openings = await api.listOpenings(lvl.id);
       let planUri = null, box = null;
       if (lvl.imagePath) {
         planUri = await api.planImage(lvl.imagePath);
@@ -1235,7 +1236,7 @@ async function buildAndPrint() {
         pins.push({ ...p, roomName: p.roomId != null ? roomName.get(p.roomId) : null, measurements, photos });
       }
       box ??= drawnBox(walls, pins, rooms, lvl);
-      floors.push({ level: lvl, planUri, box, walls, rooms, pins });
+      floors.push({ level: lvl, planUri, box, walls, openings, rooms, pins });
     }
 
     const html = buildReport({ project, floors, scheme, unit: unit(), withPhotos });
