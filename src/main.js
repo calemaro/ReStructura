@@ -1250,6 +1250,7 @@ async function buildAndPrint(mode = "print") {
     for (const lvl of chosen) {
       const walls = await api.listWalls(lvl.id);
       const openings = await api.listOpenings(lvl.id);
+      const stairs = await api.listStairs(lvl.id);
       let planUri = null, box = null;
       if (lvl.imagePath) {
         planUri = await api.planImage(lvl.imagePath);
@@ -1272,8 +1273,8 @@ async function buildAndPrint(mode = "print") {
         }
         pins.push({ ...p, roomName: p.roomId != null ? roomName.get(p.roomId) : null, measurements, photos });
       }
-      box ??= drawnBox(walls, pins, rooms, lvl);
-      floors.push({ level: lvl, planUri, box, walls, openings, rooms, pins });
+      box ??= drawnBox(walls, pins, rooms, lvl, stairs);
+      floors.push({ level: lvl, planUri, box, walls, openings, stairs, rooms, pins });
     }
 
     const html = buildReport({ project, floors, scheme, unit: unit(), withPhotos });
@@ -1297,9 +1298,9 @@ async function buildAndPrint(mode = "print") {
 
 /** On a drawn floor the report shows the drawing, not the whole 40 m sheet: the box
  *  around walls, pins and room labels, with a margin. */
-function drawnBox(walls, pins, rooms, lvl) {
-  const xs = [...walls.flatMap((w) => [w.x1, w.x2]), ...pins.map((p) => p.x), ...rooms.map((r) => r.x)];
-  const ys = [...walls.flatMap((w) => [w.y1, w.y2]), ...pins.map((p) => p.y), ...rooms.map((r) => r.y)];
+function drawnBox(walls, pins, rooms, lvl, stairs = []) {
+  const xs = [...walls.flatMap((w) => [w.x1, w.x2]), ...pins.map((p) => p.x), ...rooms.map((r) => r.x), ...stairs.flatMap((s) => [s.x, s.x + s.w])];
+  const ys = [...walls.flatMap((w) => [w.y1, w.y2]), ...pins.map((p) => p.y), ...rooms.map((r) => r.y), ...stairs.flatMap((s) => [s.y, s.y + s.h])];
   if (!xs.length) return { x: 0, y: 0, w: lvl.widthPx, h: lvl.heightPx };
   const pad = 120;
   const x = Math.min(...xs) - pad, y = Math.min(...ys) - pad;

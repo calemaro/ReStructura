@@ -86,6 +86,10 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M1 12h3M20 12h3" stroke-width="6"/><path d="M4 8h16M4 16h16M4 8v8M20 8v8" stroke-width="1.4"/><path d="M4 11h16M4 13h16" stroke-width="1.2"/></svg>
           <span data-i18n="editor.window"></span>
         </button>
+        <button type="button" data-tool="stair" data-i18n-attr="title:editor.stairTip">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M3 21h5v-5h5v-5h5V6h3"/><path d="M3 21V3" stroke-width="1.2"/></svg>
+          <span data-i18n="editor.stair"></span>
+        </button>
       </nav>
       <div id="editor-bar" class="editor-bar" hidden>
         <strong id="ed-tool-name" class="ed-tool-name"></strong>
@@ -94,6 +98,11 @@
         <label class="ed-field" data-field="width" data-i18n-attr="title:editor.unitTip"><span data-i18n="editor.width"></span><input id="ed-width" type="text" autocomplete="off" spellcheck="false"><em class="ed-unit"></em></label>
         <label class="ed-field" data-field="from" data-i18n-attr="title:editor.fromTip"><span data-i18n="editor.fromCorner"></span><input id="ed-from" type="text" autocomplete="off" spellcheck="false"><em class="ed-unit"></em></label>
         <label class="ed-field" data-field="thickness" data-i18n-attr="title:editor.unitTip"><span data-i18n="editor.thickness"></span><input id="ed-thickness" type="text" autocomplete="off" spellcheck="false"><em class="ed-unit"></em></label>
+        <label class="ed-field" data-field="steps"><span data-i18n="editor.steps"></span><input id="ed-steps" type="text" inputmode="numeric" autocomplete="off" class="ed-steps"></label>
+        <span class="ed-field ed-flips" data-field="stairflip">
+          <button id="ed-stair-reverse" type="button" data-i18n-attr="title:editor.stairReverseTip">⇅ <span data-i18n="editor.stairReverse"></span></button>
+          <button id="ed-stair-updown" type="button" data-i18n-attr="title:editor.stairUpDownTip"><span data-i18n="editor.stairUpDown"></span></button>
+        </span>
         <span class="ed-field ed-flips" data-field="flip">
           <button id="ed-flip-side" type="button" data-i18n-attr="title:editor.flipSideTip">⇅ <span data-i18n="editor.flipSide"></span></button>
           <button id="ed-flip-hinge" type="button" data-i18n-attr="title:editor.flipHingeTip">⇆ <span data-i18n="editor.flipHinge"></span></button>

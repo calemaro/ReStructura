@@ -262,7 +262,21 @@ fn init(conn: &Connection) -> rusqlite::Result<()> {
          );
          CREATE INDEX IF NOT EXISTS rulers_by_level ON rulers(level_id);
          CREATE INDEX IF NOT EXISTS walls_by_level ON walls(level_id);
-         CREATE INDEX IF NOT EXISTS openings_by_level ON openings(level_id);",
+         CREATE INDEX IF NOT EXISTS openings_by_level ON openings(level_id);
+         CREATE TABLE IF NOT EXISTS stairs (
+            id          INTEGER PRIMARY KEY,
+            level_id    INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+            kind        TEXT    NOT NULL,
+            x           REAL    NOT NULL,
+            y           REAL    NOT NULL,
+            w           REAL    NOT NULL,
+            h           REAL    NOT NULL,
+            dir         TEXT    NOT NULL DEFAULT 'n',
+            steps       INTEGER NOT NULL,
+            clockwise   INTEGER NOT NULL DEFAULT 1,
+            up          INTEGER NOT NULL DEFAULT 1
+         );
+         CREATE INDEX IF NOT EXISTS stairs_by_level ON stairs(level_id);",
     )?;
 
     migrate(conn)?;
@@ -276,7 +290,7 @@ fn init(conn: &Connection) -> rusqlite::Result<()> {
 /// and is applied in order, so a database from any earlier release ends up
 /// current. `CREATE TABLE IF NOT EXISTS` above already handles brand-new
 /// files, which is why a fresh database starts at the latest version.
-const DB_VERSION: i64 = 10;
+const DB_VERSION: i64 = 11;
 
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let mut v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
@@ -375,6 +389,10 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     if v < 10 {
         // openings table: created by the CREATE TABLE IF NOT EXISTS block above.
         v = 10;
+    }
+    if v < 11 {
+        // stairs table: created by the CREATE TABLE IF NOT EXISTS block above.
+        v = 11;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
@@ -1028,6 +1046,122 @@ pub fn delete_opening(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
 }
 
 // ---------------------------------------------------------------------------
+// stairs (plan editor)
+// ---------------------------------------------------------------------------
+
+/// A stair drawn on a floor: its footprint (x, y, w, h in plan pixels, axis-aligned),
+/// its kind ("straight" or "spiral"), how many treads, and which way it goes.
+/// `dir` (n, s, e, w): for a straight stair the direction of travel away from this
+/// floor; for a spiral one the side where the first step is. `clockwise` only
+/// matters for spirals. `up` 1 = the stair goes up from here (drawn with the break
+/// line), 0 = it goes down.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Stair {
+    #[serde(default)]
+    pub id: i64,
+    pub level_id: i64,
+    pub kind: String,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    pub dir: String,
+    pub steps: i64,
+    #[serde(default = "default_one")]
+    pub clockwise: i64,
+    #[serde(default = "default_one")]
+    pub up: i64,
+}
+fn default_one() -> i64 {
+    1
+}
+
+const STAIR_COLS: &str = "id, level_id, kind, x, y, w, h, dir, steps, clockwise, up";
+
+fn row_to_stair(r: &rusqlite::Row<'_>) -> rusqlite::Result<Stair> {
+    Ok(Stair {
+        id: r.get(0)?,
+        level_id: r.get(1)?,
+        kind: r.get(2)?,
+        x: r.get(3)?,
+        y: r.get(4)?,
+        w: r.get(5)?,
+        h: r.get(6)?,
+        dir: r.get(7)?,
+        steps: r.get(8)?,
+        clockwise: r.get(9)?,
+        up: r.get(10)?,
+    })
+}
+
+fn get_stair(conn: &Connection, id: i64) -> rusqlite::Result<Option<Stair>> {
+    conn.query_row(
+        &format!("SELECT {STAIR_COLS} FROM stairs WHERE id = ?1"),
+        [id],
+        row_to_stair,
+    )
+    .optional()
+}
+
+pub fn list_stairs(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Stair>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {STAIR_COLS} FROM stairs WHERE level_id = ?1 ORDER BY id"
+    ))?;
+    let rows = stmt.query_map([level_id], row_to_stair)?;
+    rows.collect()
+}
+
+pub fn add_stair(conn: &Connection, s: &Stair) -> rusqlite::Result<Stair> {
+    conn.execute(
+        "INSERT INTO stairs (level_id, kind, x, y, w, h, dir, steps, clockwise, up)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![
+            s.level_id,
+            s.kind,
+            s.x,
+            s.y,
+            s.w,
+            s.h,
+            s.dir,
+            s.steps,
+            s.clockwise,
+            s.up
+        ],
+    )?;
+    Ok(get_stair(conn, conn.last_insert_rowid())?.expect("stair just inserted must exist"))
+}
+
+/// Update a stair, or bring a deleted one back with its old id (undo).
+pub fn put_stair(conn: &Connection, s: &Stair) -> rusqlite::Result<Stair> {
+    conn.execute(
+        "INSERT INTO stairs (id, level_id, kind, x, y, w, h, dir, steps, clockwise, up)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+         ON CONFLICT(id) DO UPDATE SET level_id = excluded.level_id, kind = excluded.kind,
+            x = excluded.x, y = excluded.y, w = excluded.w, h = excluded.h, dir = excluded.dir,
+            steps = excluded.steps, clockwise = excluded.clockwise, up = excluded.up",
+        params![
+            s.id,
+            s.level_id,
+            s.kind,
+            s.x,
+            s.y,
+            s.w,
+            s.h,
+            s.dir,
+            s.steps,
+            s.clockwise,
+            s.up
+        ],
+    )?;
+    Ok(get_stair(conn, s.id)?.expect("stair just written must exist"))
+}
+
+pub fn delete_stair(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
+    conn.execute("DELETE FROM stairs WHERE id = ?1", [id])
+}
+
+// ---------------------------------------------------------------------------
 // search — across every floor of the open project
 // ---------------------------------------------------------------------------
 
@@ -1304,5 +1438,44 @@ mod tests {
         // deleting the wall takes its openings with it
         delete_wall(&conn, w.id).unwrap();
         assert!(list_openings(&conn, lvl.id).unwrap().is_empty());
+    }
+
+    #[test]
+    fn stairs_round_trip() {
+        let conn = fresh();
+        let lvl = add_drawn_level(&conn, "Main", 4000.0, 3000.0).unwrap();
+        let s = add_stair(
+            &conn,
+            &Stair {
+                id: 0,
+                level_id: lvl.id,
+                kind: "straight".into(),
+                x: 100.0,
+                y: 200.0,
+                w: 100.0,
+                h: 300.0,
+                dir: "n".into(),
+                steps: 16,
+                clockwise: 1,
+                up: 1,
+            },
+        )
+        .unwrap();
+        assert!(s.id > 0);
+        let spiral = put_stair(
+            &conn,
+            &Stair {
+                kind: "spiral".into(),
+                clockwise: 0,
+                ..s.clone()
+            },
+        )
+        .unwrap();
+        assert_eq!(spiral.id, s.id);
+        assert_eq!(spiral.clockwise, 0);
+        assert_eq!(delete_stair(&conn, s.id).unwrap(), 1);
+        assert!(list_stairs(&conn, lvl.id).unwrap().is_empty());
+        put_stair(&conn, &spiral).unwrap(); // undo brings it back with its id
+        assert_eq!(list_stairs(&conn, lvl.id).unwrap()[0].id, s.id);
     }
 }

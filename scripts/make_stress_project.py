@@ -10,7 +10,7 @@ What it contains (defaults):
              calibrated and partly traced, one plan image left uncalibrated
   ~300 pins  every category, labels, notes, rooms, measurements, spread over months
   ~1000 photos  1600 x 1200 JPEGs with thumbnails, some with captions
-  rooms, doors of every type, windows of every type, kept measurements
+  rooms, doors of every type, windows of every type, stairs, kept measurements
 
 The database layout is read from src-tauri/src/db.rs at run time, so the file
 matches the app exactly and this script does not go stale when the schema changes.
@@ -222,7 +222,7 @@ def main():
     floors.append((lid4, [], [(x * scale, y * scale) for x, y in s_rooms], tuple(v * scale for v in s_bbox), scale, False))
 
     # walls, openings, rooms, rulers
-    counts = {"walls": 0, "openings": 0, "rooms": 0, "rulers": 0}
+    counts = {"walls": 0, "openings": 0, "rooms": 0, "rulers": 0, "stairs": 0}
     room_ids = {}
     for lid, walls, rooms, bbox, k, calibrated in floors:
         with_ids = []
@@ -236,6 +236,14 @@ def main():
             db.execute("INSERT INTO openings (level_id, wall_id, kind, offset_px, width_px, hinge, side) VALUES (?, ?, ?, ?, ?, ?, ?)",
                        (lid, wid, kind, off, width, hinge, side))
             counts["openings"] += 1
+        if walls and calibrated and lid in (specs[0][0], specs[1][0]):
+            # a straight stair going up and a spiral going down, in two rooms of each drawn floor
+            (rx, ry), (sx, sy) = rooms[0], rooms[-1]
+            db.execute("INSERT INTO stairs (level_id, kind, x, y, w, h, dir, steps, clockwise, up) VALUES (?, 'straight', ?, ?, 100, 260, 'n', 15, 1, 1)",
+                       (lid, rx - 50, ry - 130))
+            db.execute("INSERT INTO stairs (level_id, kind, x, y, w, h, dir, steps, clockwise, up) VALUES (?, 'spiral', ?, ?, 160, 160, 's', 12, 1, 0)",
+                       (lid, sx - 80, sy - 80))
+            counts["stairs"] += 2
         room_ids[lid] = []
         for i, (rx, ry) in enumerate(rooms):
             name, ceiling = ROOMS[i % len(ROOMS)]
@@ -323,7 +331,7 @@ def main():
     shutil.rmtree(work)
     print(f"{zip_path}  ({zip_path.stat().st_size / 1e6:.0f} MB): {len(floors)} floors, {len(pins)} pins, "
           f"{n_photos} photos, {counts['walls']} walls, {counts['openings']} doors and windows, "
-          f"{counts['rooms']} rooms, {counts['rulers']} kept measurements")
+          f"{counts['rooms']} rooms, {counts['rulers']} kept measurements, {counts['stairs']} stairs")
 
 
 if __name__ == "__main__":

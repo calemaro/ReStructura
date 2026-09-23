@@ -9,7 +9,8 @@
 //
 // Walls are stored as a centre line in plan pixels plus a thickness in real
 // centimetres. Doors and windows ("openings") belong to a wall and are stored as a
-// position ALONG it, so they follow the wall when a corner moves. Everything here
+// position ALONG it, so they follow the wall when a corner moves. Stairs are a box
+// (their footprint) with a kind, a direction and a number of treads. Everything here
 // works in plan pixels (origin top-left, y down), kept as floats. How the plan is
 // drawn (symbols included) lives in plan-shapes.js, shared with the printed report.
 //
@@ -54,6 +55,11 @@ let selOps = new Set();          // selected opening ids
 let moving = null;               // select tool: a corner picked up, { affected, anchor, ids }
 let movingOp = null;             // select tool: an opening picked up, { before, grab }
 let placing = null;              // door/window tool after the first click: { wall, t, side }
+let stairs = [];                 // this floor's stairs, as stored
+let selStairs = new Set();       // selected stair ids
+let placingStair = null;         // stair tool after the first click: { p }
+let movingStair = null;          // select tool: a stair picked up, { before, grab }
+let nextSteps = null;            // steps typed for the next stair (null = worked out from its length)
 let busy = false;                // a database write is in flight; ignore clicks meanwhile
 
 const $ = (sel) => document.querySelector(sel);
@@ -66,6 +72,7 @@ const widthInput = $("#ed-width");
 const fromInput = $("#ed-from");
 const thickInput = $("#ed-thickness");
 const imageRange = $("#ed-image");
+const stepsInput = $("#ed-steps");
 
 // ---- geometry ------------------------------------------------------------------------
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -249,10 +256,20 @@ function labelAt(p, text, cls = "") {
 }
 const lengthLabel = (a, b, text, cls) => labelAt({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, text, cls);
 
+const escText = (v) => String(v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
 function addShape(sh, colour, layer) {
   const lls = sh.pts.map(toLatLng);
   const dashArray = sh.dash ? "4 3" : null;
-  if (sh.type === "fill") {
+  if (sh.type === "text") {
+    // sized to the plan, so it shrinks with the stair when zoomed out (and hides when unreadable)
+    const px = sh.size * screenScale();
+    if (px < 7) return;
+    L.marker(lls[0], {
+      icon: L.divIcon({ className: "", html: `<span class="stair-label" style="font-size:${Math.min(px, 18).toFixed(1)}px;color:${colour}">${escText(sh.text)}</span>`, iconSize: [0, 0] }),
+      interactive: false, keyboard: false, pane: "plan-labels",
+    }).addTo(layer);
+  } else if (sh.type === "fill") {
     L.polygon(lls, { pane: "plan-walls", stroke: false, fillColor: colour, fillOpacity: 1, interactive: false }).addTo(layer);
   } else if (sh.type === "outline") {
     L.polygon(lls, {
@@ -282,8 +299,10 @@ function render() {
   wallLayer.clearLayers();
   for (const id of selected) if (!walls.some((w) => w.id === id)) selected.delete(id);
   for (const id of selOps) if (!openings.some((o) => o.id === id)) selOps.delete(id);
-  for (const sh of planShapes(walls, openings, k())) {
-    const sel = active && (sh.openingId != null ? selOps.has(sh.openingId) : selected.has(sh.wallId));
+  for (const id of selStairs) if (!stairs.some((s) => s.id === id)) selStairs.delete(id);
+  for (const sh of planShapes(walls, openings, k(), stairs, words())) {
+    const sel = active && (sh.stairId != null ? selStairs.has(sh.stairId)
+      : sh.openingId != null ? selOps.has(sh.openingId) : selected.has(sh.wallId));
     addShape(sh, sel ? SELECTED : INK, wallLayer);
   }
   drawSheet();
@@ -298,8 +317,17 @@ function render() {
     }
     const one = oneOpening();
     if (one) openingLabels(one, movingOp ? "preview" : "selected", wallLayer);
+    const st = oneStair();
+    if (st) stairLabels(st, movingStair ? "preview" : "selected", wallLayer);
   }
   refreshBar();
+}
+
+/** A stair's width and length written beside its box. */
+function stairLabels(s, cls, layer) {
+  const off = 16 / screenScale();
+  lengthLabel({ x: s.x, y: s.y - off }, { x: s.x + s.w, y: s.y - off }, fmt(s.w * k()), cls).addTo(layer);
+  lengthLabel({ x: s.x + s.w + off, y: s.y }, { x: s.x + s.w + off, y: s.y + s.h }, fmt(s.h * k()), cls).addTo(layer);
 }
 
 function clearPreview() { drawLayer?.clearLayers(); }
@@ -310,6 +338,7 @@ function renderPreview() {
   if (!active) return;
   if (tool === "wall") renderWallPreview();
   else if (isOpeningTool()) renderOpeningPreview();
+  else if (tool === "stair") renderStairPreview();
 }
 
 function renderWallPreview() {
@@ -329,6 +358,20 @@ function renderWallPreview() {
   const len = fmt(dist(chain.start, to) * k());
   lengthLabel(chain.start, to, len, "preview").addTo(drawLayer);
   lengthInput.placeholder = len;
+}
+
+function renderStairPreview() {
+  if (!cursorRaw) return;
+  const p = snap(cursorRaw, { free: cursorFree });
+  if (p.kind) {
+    L.circleMarker(toLatLng(p), { pane: "plan-labels", radius: p.kind === "corner" ? 6 : 4, color: PREVIEW, weight: 2, fill: p.kind === "corner", fillColor: PREVIEW, fillOpacity: 0.25, interactive: false }).addTo(drawLayer);
+  }
+  if (!placingStair) return;
+  const s = stairFromBox(placingStair.p, p);
+  if (s.w < 1 || s.h < 1) return;
+  drawSheet({ x: s.x + s.w, y: s.y + s.h });
+  for (const sh of planShapes([], [], k(), [s], words())) addShape(sh, PREVIEW, drawLayer);
+  stairLabels(s, "preview", drawLayer);
 }
 
 function renderOpeningPreview() {
@@ -391,11 +434,40 @@ const thickness = () => {
   const v = Number(settings.value("wallThicknessCm"));
   return v > 0 ? v : 10;
 };
-const family = (kind) => (isDoorKind(kind) ? "door" : "window");
+const STAIR_KINDS = ["straight", "spiral"];
+const KIND_LISTS = { door: DOOR_KINDS, window: WINDOW_KINDS, stair: STAIR_KINDS };
+const KIND_SETTING = { door: "doorKind", window: "windowKind", stair: "stairKind" };
+const family = (kind) => (isDoorKind(kind) ? "door" : STAIR_KINDS.includes(kind) ? "stair" : "window");
 function currentKind(forTool) {
-  const list = forTool === "door" ? DOOR_KINDS : WINDOW_KINDS;
-  const saved = settings.value(forTool === "door" ? "doorKind" : "windowKind");
+  const list = KIND_LISTS[forTool] ?? WINDOW_KINDS;
+  const saved = settings.value(KIND_SETTING[forTool]);
   return list.includes(saved) ? saved : list[0];
+}
+const words = () => ({ up: t("stair.up"), down: t("stair.down") });
+const selectedStairs = () => stairs.filter((s) => selStairs.has(s.id));
+function oneStair() {
+  return tool === "select" && selStairs.size === 1 && !selected.size && !selOps.size ? selectedStairs()[0] : null;
+}
+function stairAt(p) {
+  const tol = SNAP_PX / screenScale();
+  for (let i = stairs.length - 1; i >= 0; i--) {
+    const s = stairs[i];
+    if (p.x >= s.x - tol && p.x <= s.x + s.w + tol && p.y >= s.y - tol && p.y <= s.y + s.h + tol) return s;
+  }
+  return null;
+}
+const MIN_STAIR_CM = 40;
+const TREAD_CM = 28;             // a comfortable tread; sets the number of steps until one is typed
+/** A stair drawn from corner a to corner b. Straight: it climbs along the longer side,
+ *  away from the first click. Spiral: its first step is on the side of the first click. */
+function stairFromBox(a, b) {
+  const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y), w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);
+  const kind = currentKind("stair");
+  const dir = kind === "spiral"
+    ? (w > h ? (a.x < b.x ? "w" : "e") : (a.y < b.y ? "n" : "s"))
+    : (w > h ? (b.x >= a.x ? "e" : "w") : (b.y >= a.y ? "s" : "n"));
+  const steps = nextSteps ?? (kind === "spiral" ? 12 : clamp(Math.round((Math.max(w, h) * k()) / TREAD_CM), 3, 30));
+  return { id: -1, levelId: level.id, kind, x: r2(x), y: r2(y), w: r2(w), h: r2(h), dir, steps, clockwise: 1, up: 1 };
 }
 const selectedWalls = () => walls.filter((w) => selected.has(w.id));
 const selectedOpenings = () => openings.filter((o) => selOps.has(o.id));
@@ -409,7 +481,9 @@ function fields() {
   const show = new Set(overlay ? ["image"] : []);
   if (tool === "wall") ["length", "thickness"].forEach((f) => show.add(f));
   else if (isOpeningTool()) ["kind", "width"].forEach((f) => show.add(f));
+  else if (tool === "stair") ["kind", "steps"].forEach((f) => show.add(f));
   else if (oneOpening()) ["kind", "width", "from", "flip"].forEach((f) => show.add(f));
+  else if (oneStair()) ["kind", "steps", "stairflip"].forEach((f) => show.add(f));
   else if (selected.size && !selOps.size) ["length", "thickness"].forEach((f) => show.add(f));
   return show;
 }
@@ -419,7 +493,7 @@ function fillKinds(fam) {
   if (kindSelect.dataset.sig === sig) return;
   kindSelect.dataset.sig = sig;
   kindSelect.innerHTML = "";
-  for (const kd of fam === "door" ? DOOR_KINDS : WINDOW_KINDS) kindSelect.add(new Option(t("kind." + kd), kd));
+  for (const kd of KIND_LISTS[fam] ?? WINDOW_KINDS) kindSelect.add(new Option(t("kind." + kd), kd));
 }
 
 function refreshBar() {
@@ -452,9 +526,13 @@ function refreshBar() {
     const allSame = sel.length && sel.every((w) => w.thicknessCm === sel[0].thicknessCm);
     thickInput.value = ctx.inputCm(tool === "select" && allSame ? sel[0].thicknessCm : thickness());
   }
+  const st = oneStair();
+  if (idle(stepsInput)) stepsInput.value = st ? String(st.steps) : nextSteps ?? "";
+  stepsInput.placeholder = st ? "" : t("stair.auto");
   if (show.has("kind")) {
-    fillKinds(op ? family(op.kind) : tool);
-    kindSelect.value = op ? op.kind : currentKind(tool);
+    const current = op ?? st;
+    fillKinds(current ? family(current.kind) : tool);
+    kindSelect.value = current ? current.kind : currentKind(tool);
   }
 }
 
@@ -462,8 +540,10 @@ function hint() {
   if (!active) return;
   const key = moving ? "editor.hintMove"
     : movingOp ? "editor.hintMoveOpening"
+    : movingStair ? "editor.hintMoveStair"
     : tool === "select" ? "editor.hintSelect"
     : tool === "wall" ? (chain ? "editor.hintChain" : "editor.hintWall")
+    : tool === "stair" ? (placingStair ? "editor.hintStair2" : "editor.hintStair")
     : placing ? "editor.hintPlace2"
     : tool === "door" ? "editor.hintDoor" : "editor.hintWindow";
   setStatus(t(key));
@@ -472,7 +552,7 @@ function hint() {
 function setTool(next) {
   settle();
   tool = next;
-  if (tool !== "select") { selected.clear(); selOps.clear(); }
+  if (tool !== "select") { selected.clear(); selOps.clear(); selStairs.clear(); }
   render();
   renderPreview();
   hint();
@@ -567,12 +647,16 @@ async function deleteSelected() {
   const wallIds = ws.map((w) => w.id);
   const ops = openings.filter((o) => selOps.has(o.id) || wallIds.includes(o.wallId));
   const loose = ops.filter((o) => !wallIds.includes(o.wallId)).map((o) => o.id);
-  if (!ws.length && !ops.length) return;
+  const sts = selectedStairs();
+  const stairIds = sts.map((s) => s.id);
+  if (!ws.length && !ops.length && !sts.length) return;
   await write(() => history.run({
     label: t("editor.deleteLabel"),
     do: async () => {
       if (loose.length) await api.deleteOpenings(loose);
       if (wallIds.length) await api.deleteWalls(wallIds);
+      if (stairIds.length) await api.deleteStairs(stairIds);
+      stairs = stairs.filter((s) => !stairIds.includes(s.id));
       const gone = new Set(ops.map((o) => o.id));
       openings = openings.filter((o) => !gone.has(o.id));
       walls = walls.filter((w) => !wallIds.includes(w.id));
@@ -581,10 +665,88 @@ async function deleteSelected() {
     undo: async () => {
       if (ws.length) upsertIn(walls, await api.putWalls(ws));
       if (ops.length) upsertIn(openings, await api.putOpenings(ops));
+      if (sts.length) upsertIn(stairs, await api.putStairs(sts));
       render();
     },
   }));
-  setStatus(t("editor.deleted", { n: ws.length + ops.length }));
+  setStatus(t("editor.deleted", { n: ws.length + ops.length + sts.length }));
+}
+
+// ---- stairs --------------------------------------------------------------------------
+function upsertStairs(rows) { upsertIn(stairs, rows); render(); }
+
+async function addStair(s) {
+  const { id: _, ...fresh } = s;
+  let row = null;
+  await history.run({
+    label: t("stair.add"),
+    do: async () => {
+      row = row ? (await api.putStairs([row]))[0] : await api.addStair(fresh);
+      upsertStairs([row]);
+    },
+    undo: async () => {
+      await api.deleteStairs([row.id]);
+      stairs = stairs.filter((x) => x.id !== row.id);
+      render();
+    },
+  });
+}
+
+async function replaceStair(label, before, after) {
+  await write(() => history.run({
+    label,
+    do: async () => upsertStairs(await api.putStairs([after])),
+    undo: async () => upsertStairs(await api.putStairs([before])),
+  }));
+}
+function changeStair(patch) {
+  const s = oneStair();
+  if (s) replaceStair(t("stair.change"), s, { ...s, ...patch });
+}
+/** Straight: climb the other way. Spiral: turn the other way. */
+function reverseStair() {
+  const s = oneStair();
+  if (!s) return;
+  if (s.kind === "spiral") changeStair({ clockwise: s.clockwise ? 0 : 1 });
+  else changeStair({ dir: { n: "s", s: "n", e: "w", w: "e" }[s.dir] ?? "n" });
+}
+const toggleUpDown = () => { const s = oneStair(); if (s) changeStair({ up: s.up ? 0 : 1 }); };
+
+function cancelPlacingStair() {
+  if (!placingStair) return;
+  placingStair = null;
+  renderPreview(); refreshBar(); hint();
+}
+function cancelMoveStair() {
+  if (!movingStair) return;
+  const before = movingStair.before;
+  movingStair = null;
+  upsertStairs([before]);
+  hint();
+}
+
+async function stairClick(raw) {
+  const p = snap(raw, { free: cursorFree });
+  if (!placingStair) { placingStair = { p }; renderPreview(); refreshBar(); hint(); return; }
+  const s = stairFromBox(placingStair.p, p);
+  if (Math.min(s.w, s.h) * k() < MIN_STAIR_CM) { setStatus(t("stair.tooSmall")); return; }
+  placingStair = null;
+  await write(() => addStair(s));
+  renderPreview(); refreshBar(); hint();
+  setStatus(t("stair.placed", { kind: t("kind." + s.kind), n: s.steps }));
+}
+
+/** A picked-up stair follows the mouse; one of its corners locks onto a wall corner nearby. */
+function slideStair(raw) {
+  const s = stairs.find((x) => x.id === movingStair.before.id);
+  let x = raw.x - movingStair.grab.x, y = raw.y - movingStair.grab.y;
+  if (!cursorFree) {
+    for (const [dx, dy] of [[0, 0], [s.w, 0], [0, s.h], [s.w, s.h]]) {
+      const c = snap({ x: x + dx, y: y + dy });
+      if (c.kind === "corner") { x = c.x - dx; y = c.y - dy; break; }
+    }
+  }
+  upsertStairs([{ ...s, x: r2(x), y: r2(y) }]);           // preview only
 }
 
 /** Every wall end sitting on `p`, so moving a corner keeps the walls joined there. */
@@ -783,6 +945,15 @@ async function selectClick(raw, e) {
     hint();
     return;
   }
+  if (movingStair) {
+    const before = movingStair.before;
+    const now = stairs.find((x) => x.id === before.id);
+    movingStair = null;
+    upsertStairs([before]);
+    if (now && (now.x !== before.x || now.y !== before.y)) await replaceStair(t("stair.move"), before, now);
+    hint();
+    return;
+  }
   if (movingOp) {
     const before = movingOp.before;
     const now = openings.find((x) => x.id === before.id);
@@ -813,17 +984,33 @@ async function selectClick(raw, e) {
       return;
     }
     if (additive) selOps.has(op.id) ? selOps.delete(op.id) : selOps.add(op.id);
-    else { selected.clear(); selOps = new Set([op.id]); }
+    else { selected.clear(); selStairs.clear(); selOps = new Set([op.id]); }
     render();
     const one = oneOpening();
     if (one) setStatus(t("opening.info", { kind: t("kind." + one.kind), w: fmt(one.widthPx * k()), d: fmt(fromCorner(one).px * k()) }));
     else hint();
     return;
   }
+  const st = stairAt(raw);
+  if (st) {
+    // clicking the already selected stair picks it up to move it
+    if (!additive && selStairs.size === 1 && selStairs.has(st.id) && !selected.size && !selOps.size) {
+      movingStair = { before: { ...st }, grab: { x: raw.x - st.x, y: raw.y - st.y } };
+      render(); hint();
+      return;
+    }
+    if (additive) selStairs.has(st.id) ? selStairs.delete(st.id) : selStairs.add(st.id);
+    else { selected.clear(); selOps.clear(); selStairs = new Set([st.id]); }
+    render();
+    const one = oneStair();
+    if (one) setStatus(t("stair.info", { kind: t("kind." + one.kind), w: fmt(one.w * k()), l: fmt(one.h * k()), n: one.steps }));
+    else hint();
+    return;
+  }
   const hit = wallAt(raw);
-  if (!hit) { if (!additive) { selected.clear(); selOps.clear(); } }
+  if (!hit) { if (!additive) { selected.clear(); selOps.clear(); selStairs.clear(); } }
   else if (additive) { selected.has(hit.id) ? selected.delete(hit.id) : selected.add(hit.id); }
-  else { selected = new Set([hit.id]); selOps.clear(); }
+  else { selected = new Set([hit.id]); selOps.clear(); selStairs.clear(); }
   render();
   if (hit && selected.size === 1 && !selOps.size) setStatus(t("wall.info", { len: fmt(wallCm(hit)), th: fmt(hit.thicknessCm) }));
   else hint();
@@ -854,9 +1041,24 @@ export function init(hooks) {
   kindSelect.addEventListener("change", () => {
     const op = oneOpening();
     if (op) { changeOpening(t("opening.change"), { kind: kindSelect.value }); return; }
-    settings.set({ [tool === "door" ? "doorKind" : "windowKind"]: kindSelect.value });
+    if (oneStair()) { changeStair({ kind: kindSelect.value }); return; }
+    settings.set({ [KIND_SETTING[tool]]: kindSelect.value });
     renderPreview();
   });
+  stepsInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); stepsInput.blur(); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); stepsInput.value = ""; stepsInput.blur(); refreshBar(); }
+  });
+  stepsInput.addEventListener("change", () => {
+    const n = parseInt(stepsInput.value, 10);
+    const ok = n >= 1 && n <= 60;
+    const st = oneStair();
+    if (st) { if (ok && n !== st.steps) changeStair({ steps: n }); else refreshBar(); return; }
+    nextSteps = ok ? n : null;                       // empty = work it out from the length
+    refreshBar(); renderPreview();
+  });
+  $("#ed-stair-reverse").addEventListener("click", reverseStair);
+  $("#ed-stair-updown").addEventListener("click", toggleUpDown);
   $("#ed-flip-side").addEventListener("click", flipSide);
   $("#ed-flip-hinge").addEventListener("click", flipHinge);
   imageRange.addEventListener("input", () => overlay?.setOpacity(imageRange.value / 100));
@@ -867,8 +1069,9 @@ export async function attach(m, lvl, { height: h, overlay: ov }) {
   map = m; level = lvl; height = h; overlay = ov;
   baseSheet = ov ? null : { x0: 0, y0: 0, x1: lvl.widthPx, y1: lvl.heightPx };
   sheetKey = "";
-  walls = []; openings = []; selected = new Set(); selOps = new Set();
-  chain = null; moving = null; movingOp = null; placing = null; cursor = null; cursorRaw = null; active = false;
+  walls = []; openings = []; stairs = []; selected = new Set(); selOps = new Set(); selStairs = new Set();
+  chain = null; moving = null; movingOp = null; placing = null; placingStair = null; movingStair = null;
+  cursor = null; cursorRaw = null; active = false;
   // Panes stack the plan: image or sheet < walls < rulers and pins (Leaflet's own panes).
   map.createPane("plan-base").style.zIndex = 250;
   map.createPane("plan-walls").style.zIndex = 350;
@@ -876,13 +1079,14 @@ export async function attach(m, lvl, { height: h, overlay: ov }) {
   sheetLayer = L.layerGroup().addTo(map);
   wallLayer = L.layerGroup().addTo(map);
   drawLayer = L.layerGroup().addTo(map);
-  [walls, openings] = await Promise.all([api.listWalls(lvl.id), api.listOpenings(lvl.id)]);
+  [walls, openings, stairs] = await Promise.all([api.listWalls(lvl.id), api.listOpenings(lvl.id), api.listStairs(lvl.id)]);
+  map.on("zoomend", render);                        // labels and stair words are sized to the zoom
   render();
 }
 
 export function detach() {
   if (active) exit();
-  map = null; level = null; wallLayer = null; drawLayer = null; sheetLayer = null; walls = []; openings = [];
+  map = null; level = null; wallLayer = null; drawLayer = null; sheetLayer = null; walls = []; openings = []; stairs = [];
 }
 
 /** The paper of a drawn floor: the sheet it was created with, grown to keep a margin
@@ -891,7 +1095,7 @@ export function detach() {
 function sheetRect(extra) {
   const step = SHEET_STEP_CM / k(), margin = SHEET_MARGIN_CM / k();
   const r = { ...baseSheet };
-  const pts = walls.flatMap((w) => [end1(w), end2(w)]);
+  const pts = [...walls.flatMap((w) => [end1(w), end2(w)]), ...stairs.flatMap((s) => [{ x: s.x, y: s.y }, { x: s.x + s.w, y: s.y + s.h }])];
   if (extra) pts.push(extra);
   for (const p of pts) {
     r.x0 = Math.min(r.x0, Math.floor((p.x - margin) / step) * step);
@@ -938,8 +1142,9 @@ export const isActive = () => active;
 
 /** The drawn part of the floor in plan pixels, for "fit view" on a drawn floor. */
 export function contentBox() {
-  if (!walls.length) return null;
-  const xs = walls.flatMap((w) => [w.x1, w.x2]), ys = walls.flatMap((w) => [w.y1, w.y2]);
+  if (!walls.length && !stairs.length) return null;
+  const xs = [...walls.flatMap((w) => [w.x1, w.x2]), ...stairs.flatMap((s) => [s.x, s.x + s.w])];
+  const ys = [...walls.flatMap((w) => [w.y1, w.y2]), ...stairs.flatMap((s) => [s.y, s.y + s.h])];
   return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
@@ -967,6 +1172,7 @@ export function exit() {
   active = false;
   selected.clear();
   selOps.clear();
+  selStairs.clear();
   bar.hidden = true;
   palette.hidden = true;
   overlay?.setOpacity(1);
@@ -985,6 +1191,7 @@ export function click(latlng, e) {
   cursorFree = e.ctrlKey || e.metaKey;
   if (tool === "select") { selectClick(raw, e); return; }
   if (isOpeningTool()) { openingClick(raw); return; }
+  if (tool === "stair") { stairClick(raw); return; }
   // a length typed and then a click: the wall gets the typed length, in the clicked direction
   if (chain && lengthInput.value.trim() && ctx.parseCm(lengthInput.value) > 0) {
     cursor = snap(raw, { from: chain.start, free: cursorFree });
@@ -1006,6 +1213,8 @@ export function move(latlng, e) {
     upsert(moved(moving.affected, cursor));      // preview only: nothing is saved until the click
   } else if (movingOp) {
     slideOpening(raw);
+  } else if (movingStair) {
+    slideStair(raw);
   } else {
     cursor = null;
   }
@@ -1016,9 +1225,19 @@ export function contextMenu(latlng, at) {
   if (!active) return;
   const p = toPoint(latlng);
   const op = openingAt(p);
-  const hit = op ? null : wallAt(p);
+  const st = op ? null : stairAt(p);
+  const hit = op || st ? null : wallAt(p);
   const items = [];
-  if (op) {
+  if (st) {
+    setTool("select");
+    selected.clear(); selOps.clear(); selStairs = new Set([st.id]); render();
+    items.push(
+      { text: t("editor.stairReverseTip"), action: reverseStair },
+      { text: t("editor.stairUpDownTip"), action: toggleUpDown },
+      { text: t("menu.delete"), action: deleteSelected },
+      { separator: true },
+    );
+  } else if (op) {
     setTool("select");
     selected.clear(); selOps = new Set([op.id]); render();
     items.push(
@@ -1045,22 +1264,25 @@ export function onKey(e) {
     e.preventDefault();
     if (moving) cancelMove();
     else if (movingOp) cancelMoveOp();
+    else if (movingStair) cancelMoveStair();
     else if (placing) cancelPlacing();
+    else if (placingStair) cancelPlacingStair();
     else if (chain) finishChain();
     else if (tool !== "select") setTool("select");
-    else if (selected.size || selOps.size) { selected.clear(); selOps.clear(); render(); hint(); }
+    else if (selected.size || selOps.size || selStairs.size) { selected.clear(); selOps.clear(); selStairs.clear(); render(); hint(); }
     return true;
   }
   if (e.key === "Enter" && chain) { e.preventDefault(); finishChain(); return true; }
   if (e.key === "Backspace" && chain) { e.preventDefault(); stepBack(); return true; }
   if (mod && key === "z" && !e.shiftKey && chain) { e.preventDefault(); stepBack(); return true; }
   if (mod && (key === "z" || key === "y")) { settle(); return false; }   // the app's undo/redo takes it from here
-  if ((e.key === "Delete" || e.key === "Backspace") && (selected.size || selOps.size)) { e.preventDefault(); deleteSelected(); return true; }
+  if ((e.key === "Delete" || e.key === "Backspace") && (selected.size || selOps.size || selStairs.size)) { e.preventDefault(); deleteSelected(); return true; }
   if (mod && key === "a") {
     e.preventDefault();
     setTool("select");
     selected = new Set(walls.map((w) => w.id));
     selOps = new Set(openings.map((o) => o.id));
+    selStairs = new Set(stairs.map((s) => s.id));
     render(); hint();
     return true;
   }
@@ -1068,7 +1290,9 @@ export function onKey(e) {
   if (mod || e.altKey) return false;
   if (oneOpening() && key === "f") { flipSide(); return true; }
   if (oneOpening() && key === "h") { flipHinge(); return true; }
-  const toolKey = { v: "select", s: "select", w: "wall", d: "door", n: "window" }[key];
+  if (oneStair() && key === "f") { reverseStair(); return true; }
+  if (oneStair() && key === "u") { toggleUpDown(); return true; }
+  const toolKey = { v: "select", s: "select", w: "wall", d: "door", n: "window", t: "stair" }[key];
   if (toolKey) { setTool(toolKey); return true; }
   // typing a number while drawing starts the length (or width) box with that character
   if (/^[0-9.,]$/.test(e.key) && ((tool === "wall" && chain) || placing)) {
@@ -1086,4 +1310,4 @@ export function onKey(e) {
 export function refreshUnits() { render(); renderPreview(); hint(); }
 
 /** End any half-finished gesture, before undo/redo changes things underneath it. */
-export function settle() { finishChain(); cancelMove(); cancelMoveOp(); cancelPlacing(); }
+export function settle() { finishChain(); cancelMove(); cancelMoveOp(); cancelPlacing(); cancelMoveStair(); cancelPlacingStair(); }

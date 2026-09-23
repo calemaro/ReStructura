@@ -142,7 +142,7 @@
       "items": [
         {
           "title": "The tools",
-          "text": "Draw mode shows a tool palette on the left: **Select** (V), **Wall** (W), **Door** (D) and **Window** (N). The bar at the top shows the options of the current tool."
+          "text": "Draw mode shows a tool palette on the left: **Select** (V), **Wall** (W), **Door** (D), **Window** (N) and **Stairs** (T). The bar at the top shows the options of the current tool."
         },
         {
           "title": "Drawing walls",
@@ -167,6 +167,10 @@
         {
           "title": "Changing a door or window",
           "text": "With **Select**, click it to change its type, **Width** or distance **From corner**. **Side** (F) makes it open the other way and **Hinge** (H) moves the hinge to the other end. Click it once more to slide it along its wall."
+        },
+        {
+          "title": "Stairs",
+          "text": "Choose **Stairs** and pick the **Type**: straight or spiral. Click one corner of the stair's footprint, on the side where it starts, then the opposite corner. A straight stair climbs along its longer side, away from your first click. The number of **Steps** is worked out from the length (about 28 cm per tread) unless you type one. With **Select**: **Reverse** (F) makes it climb or turn the other way, **Up / down** (U) says whether it goes up or down from this floor, and clicking it again moves it. It is drawn with the standard symbol: treads, a walking line from a dot to an arrow, UP or DOWN, and a break line where the plan cuts a stair going up."
         },
         {
           "title": "Tracing over a plan image",
@@ -363,6 +367,12 @@
           ]
         },
         {
+          "title": "Stairs tool",
+          "keys": [
+            "T"
+          ]
+        },
+        {
           "title": "Type an exact length or width while drawing",
           "keys": [
             "0…9",
@@ -397,6 +407,18 @@
           "title": "Door or window: hinge at the other end",
           "keys": [
             "H"
+          ]
+        },
+        {
+          "title": "Stair: reverse its direction",
+          "keys": [
+            "F"
+          ]
+        },
+        {
+          "title": "Stair: going up or going down",
+          "keys": [
+            "U"
           ]
         },
         {
@@ -481,7 +503,7 @@
     },
     "draw.tools": {
       "title": "Tools",
-      "text": "Select (V), Wall (W), Door (D) and Window (N). Pick one, then click on the plan."
+      "text": "Select (V), Wall (W), Door (D), Window (N) and Stairs (T). Pick one, then click on the plan."
     },
     "draw.bar": {
       "title": "Options",

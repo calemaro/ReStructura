@@ -15,9 +15,13 @@ const nl2br = (v) => esc(v).replace(/\n/g, "<br>");
 
 /** Walls, doors and windows: the same shapes and symbols the editor draws. Line
  *  widths stay in paper units whatever the plan's size (non-scaling strokes). */
-function wallsSvg(walls, openings, cmPerPx) {
+function wallsSvg(walls, openings, stairs, cmPerPx) {
   const pts = (list) => list.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  return planShapes(walls, openings, cmPerPx).map((sh) => {
+  return planShapes(walls, openings, cmPerPx, stairs, { up: t("stair.up"), down: t("stair.down") }).map((sh) => {
+    if (sh.type === "text") {
+      const p = sh.pts[0];
+      return `<text x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" font-size="${sh.size.toFixed(1)}" font-family="sans-serif" font-weight="700" fill="#2e3230" text-anchor="middle" dominant-baseline="central">${esc(sh.text)}</text>`;
+    }
     const stroke = `stroke="#2e3230" stroke-width="${(sh.weight ?? 1) * 0.75}" vector-effect="non-scaling-stroke"${sh.dash ? ` stroke-dasharray="3 2"` : ""}`;
     if (sh.type === "fill") return `<polygon points="${pts(sh.pts)}" fill="#2e3230"/>`;
     if (sh.type === "outline") return `<polygon points="${pts(sh.pts)}" fill="${sh.paper ? "#fff" : "none"}" ${stroke}/>`;
@@ -27,7 +31,7 @@ function wallsSvg(walls, openings, cmPerPx) {
 
 /** Walls, room names and numbered pin markers, in plan pixels. `box` is the part of
  *  the plan shown: the whole image, or on a drawn floor just the drawing. */
-function planSvg(level, pins, rooms, walls, openings, scheme, box, overlay) {
+function planSvg(level, pins, rooms, walls, openings, stairs, scheme, box, overlay) {
   const width = box.w;
   const marks = pins.map((p, i) => {
     const colour = colourFor(scheme, p.category);
@@ -47,7 +51,7 @@ function planSvg(level, pins, rooms, walls, openings, scheme, box, overlay) {
             stroke-linejoin="round">${esc(room.name)}${h}</text>`;
   }).join("");
   const cls = overlay ? "plan-overlay" : "plan-drawn";
-  return `<svg viewBox="${box.x} ${box.y} ${box.w} ${box.h}" xmlns="http://www.w3.org/2000/svg" class="${cls}">${wallsSvg(walls, openings, level.cmPerPx ?? 1)}${labels}${marks}</svg>`;
+  return `<svg viewBox="${box.x} ${box.y} ${box.w} ${box.h}" xmlns="http://www.w3.org/2000/svg" class="${cls}">${wallsSvg(walls, openings, stairs, level.cmPerPx ?? 1)}${labels}${marks}</svg>`;
 }
 
 /** A scale bar in the report, drawn to the floor's calibration. Its width is a share
@@ -109,7 +113,7 @@ export function buildHtml({ project, floors, scheme, unit, withPhotos }) {
         <h2 class="floor-title">${esc(f.level.name)}</h2>
         <div class="plan-wrap">
           ${f.planUri ? `<img src="${f.planUri}" alt="">` : ""}
-          ${planSvg(f.level, f.pins, f.rooms, f.walls, f.openings, scheme, f.box, !!f.planUri)}
+          ${planSvg(f.level, f.pins, f.rooms, f.walls, f.openings, f.stairs ?? [], scheme, f.box, !!f.planUri)}
         </div>
         ${scaleBlock(f.level, lang, unit, f.box.w)}
       </section>`;

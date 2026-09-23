@@ -349,6 +349,46 @@ fn delete_openings(state: State<AppState>, ids: Vec<i64>) -> R<usize> {
 }
 
 #[tauri::command]
+fn list_stairs(state: State<AppState>, level_id: i64) -> R<Vec<db::Stair>> {
+    with_project(&state, |conn, _| db::list_stairs(conn, level_id).map_err(s))
+}
+
+#[tauri::command]
+fn add_stair(state: State<AppState>, stair: db::Stair) -> R<db::Stair> {
+    if !(stair.w > 0.0 && stair.h > 0.0 && stair.steps > 0) {
+        return Err("a stair needs a size and at least one step".into());
+    }
+    with_project_mut(&state, |conn, _| db::add_stair(conn, &stair).map_err(s))
+}
+
+#[tauri::command]
+fn put_stairs(state: State<AppState>, stairs: Vec<db::Stair>) -> R<Vec<db::Stair>> {
+    with_project_mut(&state, |conn, _| {
+        let tx = conn.unchecked_transaction().map_err(s)?;
+        let out = stairs
+            .iter()
+            .map(|st| db::put_stair(&tx, st))
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(s)?;
+        tx.commit().map_err(s)?;
+        Ok(out)
+    })
+}
+
+#[tauri::command]
+fn delete_stairs(state: State<AppState>, ids: Vec<i64>) -> R<usize> {
+    with_project_mut(&state, |conn, _| {
+        let tx = conn.unchecked_transaction().map_err(s)?;
+        let mut n = 0;
+        for id in ids {
+            n += db::delete_stair(&tx, id).map_err(s)?;
+        }
+        tx.commit().map_err(s)?;
+        Ok(n)
+    })
+}
+
+#[tauri::command]
 fn delete_walls(state: State<AppState>, ids: Vec<i64>) -> R<usize> {
     with_project_mut(&state, |conn, _| {
         let tx = conn.unchecked_transaction().map_err(s)?;
@@ -708,6 +748,10 @@ pub fn run() {
             add_wall,
             put_walls,
             delete_walls,
+            list_stairs,
+            add_stair,
+            put_stairs,
+            delete_stairs,
             list_openings,
             add_opening,
             put_openings,

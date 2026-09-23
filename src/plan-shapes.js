@@ -13,11 +13,16 @@
 //                     double line in the middle for the glazing
 //   fixed window .... the same with a single glazing line (nothing opens)
 //   French window ... glazing line with the leaf swing(s) drawn like a door
+//   stairs .......... outline and tread lines; a walking line from a dot at the first
+//                     step to an arrow at the last, marked UP (or DOWN) at the start;
+//                     going up, a zigzag break line where the plan cuts the stair,
+//                     with the treads above the cut dashed. Spiral: the same around a
+//                     central post.
 //
-// Shapes: { type: "fill" | "outline" | "line", pts: [{x, y}], weight?, dash?, paper?,
-//           wallId, openingId? }
+// Shapes: { type: "fill" | "outline" | "line" | "text", pts: [{x, y}], weight?, dash?,
+//           paper?, wallId?, openingId?, stairId?, text?, size? }
 //   fill .... solid wall            outline .. closed thin outline (paper = white inside)
-//   line .... open polyline
+//   line .... open polyline         text ..... a word at pts[0], size in plan pixels
 
 export const DOOR_KINDS = ["door", "double_door", "pocket_door", "opening"];
 export const WINDOW_KINDS = ["window", "french_window", "french_window_2", "fixed_window"];
@@ -77,7 +82,7 @@ function arcPts(c, r, a0, a1, n = 20) {
   return out;
 }
 
-export function planShapes(walls, openings, cmPerPx) {
+export function planShapes(walls, openings, cmPerPx, stairs = [], words = { up: "UP", down: "DOWN" }) {
   const k = cmPerPx || 1;
   const byWall = new Map();
   for (const o of openings) {
@@ -113,6 +118,93 @@ export function planShapes(walls, openings, cmPerPx) {
     }
     for (const o of ops) out.push(...symbol(o, f, h, k, rect));
   }
+  for (const s of stairs) out.push(...stairShapes(s, k, words));
+  return out;
+}
+
+// ---- stairs ----------------------------------------------------------------------------
+const DIRS = { e: [1, 0], w: [-1, 0], s: [0, 1], n: [0, -1] };
+const CUT = 0.6;                 // where the plan's cutting plane crosses a stair going up
+
+function arrowHead(tip, d, a) {
+  const nx = -d.y, ny = d.x;
+  return [
+    { x: tip.x - d.x * a + nx * a * 0.55, y: tip.y - d.y * a + ny * a * 0.55 },
+    tip,
+    { x: tip.x - d.x * a - nx * a * 0.55, y: tip.y - d.y * a - ny * a * 0.55 },
+  ];
+}
+const circlePts = (c, r, n = 32) =>
+  Array.from({ length: n }, (_, i) => ({ x: c.x + r * Math.cos((2 * Math.PI * i) / n), y: c.y + r * Math.sin((2 * Math.PI * i) / n) }));
+
+export function stairShapes(s, k, words) {
+  const tag = { stairId: s.id };
+  const line = (pts, extra = {}) => ({ type: "line", pts, weight: THIN, ...tag, ...extra });
+  const steps = Math.max(1, s.steps);
+  const label = s.up ? words.up : words.down;
+  return s.kind === "spiral" ? spiral(s, k, steps, label, line, tag) : straight(s, k, steps, label, line, tag);
+}
+
+function straight(s, k, steps, label, line, tag) {
+  const [ux, uy] = DIRS[s.dir] ?? DIRS.n;
+  const along = ux !== 0;                                   // travel along x
+  const L = along ? s.w : s.h, W = along ? s.h : s.w;
+  // the middle of the edge where the stair starts
+  const start = {
+    x: ux > 0 ? s.x : ux < 0 ? s.x + s.w : s.x + s.w / 2,
+    y: uy > 0 ? s.y : uy < 0 ? s.y + s.h : s.y + s.h / 2,
+  };
+  const P = (t, c) => ({ x: start.x + ux * t - uy * c, y: start.y + uy * t + ux * c });
+  const out = [{ type: "outline", pts: [P(0, -W / 2), P(L, -W / 2), P(L, W / 2), P(0, W / 2)], weight: LEAF, ...tag }];
+  const cut = L * CUT;
+  for (let i = 1; i < steps; i++) {
+    const t = (L * i) / steps;
+    out.push(line([P(t, -W / 2), P(t, W / 2)], { dash: s.up && t > cut }));
+  }
+  if (s.up) {
+    // a Z-shaped break line across the stair (two parallel diagonals joined by a jog)
+    const g = W * 0.07;
+    out.push(line([P(cut - W * 0.2, -W / 2), P(cut - W * 0.02, -W * 0.05), P(cut + g + W * 0.02, W * 0.05), P(cut + g + W * 0.2, W / 2)], { weight: LEAF }));
+  }
+  const tread = L / steps, a = Math.min(W * 0.22, 25 / k);
+  const from = P(tread * 0.5, 0), to = P(L - tread * 0.3, 0);
+  out.push(line([from, to]));
+  out.push(line(arrowHead(to, { x: ux, y: uy }, a)));
+  out.push({ type: "fill", pts: circlePts(from, a * 0.22, 12), ...tag });
+  out.push({ type: "text", pts: [P(tread * 0.5, W * 0.28)], text: label, size: Math.min(W * 0.16, 14 / k), ...tag });
+  return out;
+}
+
+function spiral(s, k, steps, label, line, tag) {
+  const c = { x: s.x + s.w / 2, y: s.y + s.h / 2 };
+  const R = Math.min(s.w, s.h) / 2, r0 = Math.max(R * 0.12, 5 / k);
+  const [dx, dy] = DIRS[s.dir] ?? DIRS.s;
+  const a0 = Math.atan2(dy, dx);                            // where the first step is
+  const sign = s.clockwise ? 1 : -1;                        // screen y points down: + is clockwise
+  const sweep = (Math.PI * 5) / 3;                          // treads over 300°, a gap for the entry
+  const at = (ang, r) => ({ x: c.x + r * Math.cos(ang), y: c.y + r * Math.sin(ang) });
+  const ang = (f) => a0 + sign * sweep * f;
+  const out = [
+    { type: "outline", pts: circlePts(c, R, 48), weight: LEAF, ...tag },
+    { type: "outline", pts: circlePts(c, r0, 16), weight: THIN, ...tag },
+  ];
+  for (let i = 0; i <= steps; i++) {
+    const f = i / steps;
+    out.push(line([at(ang(f), r0), at(ang(f), R)], { dash: s.up && f > CUT }));
+  }
+  if (s.up) {
+    const b = ang(CUT) + sign * 0.06;
+    out.push(line([at(b - sign * 0.06, r0), at(b - sign * 0.06, R * 0.5), at(b + sign * 0.02, R * 0.58), at(b + sign * 0.02, R)], { weight: LEAF }));
+  }
+  const rw = R * 0.62, a = Math.min(R * 0.2, 25 / k);
+  const walk = Array.from({ length: 41 }, (_, i) => at(ang(0.5 / steps + ((1 - 0.8 / steps) * i) / 40), rw));
+  out.push(line(walk));
+  const end = walk.at(-1), prev = walk.at(-2);
+  const len = Math.hypot(end.x - prev.x, end.y - prev.y) || 1;
+  out.push(line(arrowHead(end, { x: (end.x - prev.x) / len, y: (end.y - prev.y) / len }, a)));
+  out.push({ type: "fill", pts: circlePts(walk[0], a * 0.22, 12), ...tag });
+  // the word sits in the gap between the last step and the first
+  out.push({ type: "text", pts: [at(a0 - sign * (2 * Math.PI - sweep) / 2, R * 0.6)], text: label, size: Math.min(R * 0.18, 14 / k), ...tag });
   return out;
 }
 
