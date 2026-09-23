@@ -142,7 +142,7 @@
       "items": [
         {
           "title": "Gli strumenti",
-          "text": "La modalità Disegna mostra a sinistra una tavolozza di strumenti: **Seleziona** (V), **Muro** (W), **Porta** (D) e **Finestra** (N). La barra in alto mostra le opzioni dello strumento corrente."
+          "text": "La modalità Disegna mostra a sinistra una tavolozza di strumenti: **Seleziona** (V), **Muro** (W), **Porta** (D), **Finestra** (N) e **Scala** (T). La barra in alto mostra le opzioni dello strumento corrente."
         },
         {
           "title": "Disegnare i muri",
@@ -167,6 +167,10 @@
         {
           "title": "Modificare una porta o una finestra",
           "text": "Con **Seleziona**, cliccala per cambiarne il tipo, la **Larghezza** o la distanza **Dall'angolo**. **Lato** (F) la fa aprire dall'altra parte e **Cerniera** (H) sposta la cerniera all'altra estremità. Cliccala ancora una volta per farla scorrere lungo il muro."
+        },
+        {
+          "title": "Scale",
+          "text": "Scegli **Scala** e il **Tipo**: dritta o a chiocciola. Clicca un angolo dell'ingombro della scala, dal lato dove inizia, poi l'angolo opposto. Una scala dritta sale lungo il lato più lungo, allontanandosi dal primo clic. Il numero di **Gradini** viene calcolato dalla lunghezza (circa 28 cm per pedata) se non lo scrivi tu. Con **Seleziona**: **Inverti** (F) la fa salire o girare nell'altro verso, **Su / giù** (U) indica se da questo piano sale o scende, e cliccandola di nuovo la sposti. È disegnata con il simbolo standard: pedate, linea di percorso da un punto a una freccia, SU o GIÙ, e la linea di taglio dove la planimetria interrompe una scala che sale."
         },
         {
           "title": "Ricalcare un'immagine di planimetria",
@@ -363,6 +367,12 @@
           ]
         },
         {
+          "title": "Strumento Scala",
+          "keys": [
+            "T"
+          ]
+        },
+        {
           "title": "Scrivi una lunghezza o larghezza esatta mentre disegni",
           "keys": [
             "0…9",
@@ -397,6 +407,18 @@
           "title": "Porta o finestra: cerniera all'altra estremità",
           "keys": [
             "H"
+          ]
+        },
+        {
+          "title": "Scala: inverti il verso",
+          "keys": [
+            "F"
+          ]
+        },
+        {
+          "title": "Scala: sale o scende",
+          "keys": [
+            "U"
           ]
         },
         {
@@ -481,7 +503,7 @@
     },
     "draw.tools": {
       "title": "Strumenti",
-      "text": "Seleziona (V), Muro (W), Porta (D) e Finestra (N). Scegline uno, poi clicca sulla planimetria."
+      "text": "Seleziona (V), Muro (W), Porta (D), Finestra (N) e Scala (T). Scegline uno, poi clicca sulla planimetria."
     },
     "draw.bar": {
       "title": "Opzioni",
