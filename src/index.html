@@ -50,6 +50,17 @@
 
     <main class="workspace">
       <div id="plan" class="plan"></div>
+      <!-- Plan editor toolbar, shown while drawing walls -->
+      <div id="editor-bar" class="editor-bar" hidden>
+        <span class="btn-group">
+          <button id="ed-wall" type="button" data-i18n="editor.wall" data-i18n-attr="title:editor.wallTip"></button>
+          <button id="ed-select" type="button" data-i18n="editor.select" data-i18n-attr="title:editor.selectTip"></button>
+        </span>
+        <label class="ed-field"><span data-i18n="editor.length"></span><input id="ed-length" type="text" autocomplete="off" spellcheck="false"></label>
+        <label class="ed-field"><span data-i18n="editor.thickness"></span><input id="ed-thickness" type="text" autocomplete="off" spellcheck="false"></label>
+        <label class="ed-field" id="ed-image-wrap"><span data-i18n="editor.image"></span><input id="ed-image" type="range" min="0" max="100" step="5"></label>
+        <button id="ed-done" type="button" class="primary" data-i18n="editor.done"></button>
+      </div>
       <!-- Search panel -->
       <aside id="search-panel" class="panel search-panel" hidden>
         <div class="panel-head">
@@ -111,10 +122,9 @@
               <strong data-i18n="start.import"></strong>
               <span data-i18n="start.importHint"></span>
             </button>
-            <button id="start-draw" type="button" class="start-card" disabled>
+            <button id="start-draw" type="button" class="start-card">
               <strong data-i18n="start.draw"></strong>
               <span data-i18n="start.drawHint"></span>
-              <em class="soon" data-i18n="start.soon"></em>
             </button>
           </div>
         </div>

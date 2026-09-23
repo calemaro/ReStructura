@@ -63,8 +63,11 @@ fn s<E: std::fmt::Display>(e: E) -> String {
 }
 
 /// Levels leave Rust with their absolute image path filled in for this machine.
+/// A floor drawn in the editor has no image and keeps `image_file` empty.
 fn with_file(dir: &Path, mut l: db::Level) -> db::Level {
-    l.image_file = dir.join(&l.image_path).display().to_string();
+    if !l.image_path.is_empty() {
+        l.image_file = dir.join(&l.image_path).display().to_string();
+    }
     l
 }
 
@@ -210,6 +213,70 @@ fn set_level_scale(state: State<AppState>, level_id: i64, cm_per_px: Option<f64>
 fn import_plan(state: State<AppState>, src_path: String, name: String) -> R<db::Level> {
     with_project_mut(&state, |conn, dir| {
         projects::import_plan(dir, conn, Path::new(&src_path), &name).map(|l| with_file(dir, l))
+    })
+}
+
+/// Sheet for a floor drawn in the editor, in centimetres: 40 m by 30 m is
+/// larger than almost any single floor of a home.
+const SHEET_W_CM: f64 = 4000.0;
+const SHEET_H_CM: f64 = 3000.0;
+
+/// A new, empty floor to draw walls on, instead of importing an image.
+#[tauri::command]
+fn add_drawn_level(state: State<AppState>, name: String) -> R<db::Level> {
+    if name.trim().is_empty() {
+        return Err("a floor needs a name".into());
+    }
+    with_project_mut(&state, |conn, dir| {
+        db::add_drawn_level(conn, &name, SHEET_W_CM, SHEET_H_CM)
+            .map(|l| with_file(dir, l))
+            .map_err(s)
+    })
+}
+
+// ---------------------------------------------------------------------------
+// walls (plan editor)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+fn list_walls(state: State<AppState>, level_id: i64) -> R<Vec<db::Wall>> {
+    with_project(&state, |conn, _| db::list_walls(conn, level_id).map_err(s))
+}
+
+#[tauri::command]
+fn add_wall(state: State<AppState>, wall: db::Wall) -> R<db::Wall> {
+    if !(wall.thickness_cm.is_finite() && wall.thickness_cm > 0.0) {
+        return Err("a wall needs a positive thickness".into());
+    }
+    with_project_mut(&state, |conn, _| db::add_wall(conn, &wall).map_err(s))
+}
+
+/// Write several walls at once (moving a shared corner changes every wall that
+/// meets there), or bring deleted walls back with their ids. All or nothing.
+#[tauri::command]
+fn put_walls(state: State<AppState>, walls: Vec<db::Wall>) -> R<Vec<db::Wall>> {
+    with_project_mut(&state, |conn, _| {
+        let tx = conn.unchecked_transaction().map_err(s)?;
+        let out = walls
+            .iter()
+            .map(|w| db::put_wall(&tx, w))
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(s)?;
+        tx.commit().map_err(s)?;
+        Ok(out)
+    })
+}
+
+#[tauri::command]
+fn delete_walls(state: State<AppState>, ids: Vec<i64>) -> R<usize> {
+    with_project_mut(&state, |conn, _| {
+        let tx = conn.unchecked_transaction().map_err(s)?;
+        let mut n = 0;
+        for id in ids {
+            n += db::delete_wall(&tx, id).map_err(s)?;
+        }
+        tx.commit().map_err(s)?;
+        Ok(n)
     })
 }
 
@@ -533,6 +600,11 @@ pub fn run() {
             import_plan,
             set_level_scale,
             rename_level,
+            add_drawn_level,
+            list_walls,
+            add_wall,
+            put_walls,
+            delete_walls,
             list_pins,
             add_pin,
             update_pin,

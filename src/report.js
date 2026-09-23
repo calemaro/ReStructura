@@ -12,8 +12,24 @@ import { formatCm } from "./units.js";
 const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const nl2br = (v) => esc(v).replace(/\n/g, "<br>");
 
-/** Pin markers drawn over the plan as an SVG overlay, numbered to match the list. */
-function planSvg(level, pins, rooms, scheme, width, height) {
+/** Walls as filled outlines, the same shape the editor draws (square ends). */
+function wallsSvg(walls, cmPerPx) {
+  return walls.map((w) => {
+    const len = Math.hypot(w.x2 - w.x1, w.y2 - w.y1);
+    if (!len) return "";
+    const h = w.thicknessCm / cmPerPx / 2;
+    const ux = (w.x2 - w.x1) / len, uy = (w.y2 - w.y1) / len;
+    const nx = -uy * h, ny = ux * h;
+    const sx = w.x1 - ux * h, sy = w.y1 - uy * h, ex = w.x2 + ux * h, ey = w.y2 + uy * h;
+    const pts = [[sx + nx, sy + ny], [ex + nx, ey + ny], [ex - nx, ey - ny], [sx - nx, sy - ny]];
+    return `<polygon points="${pts.map((p) => p.map((v) => v.toFixed(1)).join(",")).join(" ")}" fill="#2e3230"/>`;
+  }).join("");
+}
+
+/** Walls, room names and numbered pin markers, in plan pixels. `box` is the part of
+ *  the plan shown: the whole image, or on a drawn floor just the drawing. */
+function planSvg(level, pins, rooms, walls, scheme, box, overlay) {
+  const width = box.w;
   const marks = pins.map((p, i) => {
     const colour = colourFor(scheme, p.category);
     const r = Math.max(9, Math.round(width / 85));
@@ -31,25 +47,27 @@ function planSvg(level, pins, rooms, scheme, width, height) {
             fill="#333" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="${size * 0.35}"
             stroke-linejoin="round">${esc(room.name)}${h}</text>`;
   }).join("");
-  return `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" class="plan-overlay">${labels}${marks}</svg>`;
+  const cls = overlay ? "plan-overlay" : "plan-drawn";
+  return `<svg viewBox="${box.x} ${box.y} ${box.w} ${box.h}" xmlns="http://www.w3.org/2000/svg" class="${cls}">${wallsSvg(walls, level.cmPerPx ?? 1)}${labels}${marks}</svg>`;
 }
 
-/** A scale bar in the report, drawn to the floor's calibration. */
-function scaleBlock(level, lang, unit) {
+/** A scale bar in the report, drawn to the floor's calibration. Its width is a share
+ *  of the printed plan's width, since the plan is scaled to fit the page. */
+function scaleBlock(level, lang, unit, planWidthPx) {
   if (!level.cmPerPx) return `<p class="note">${esc(t("report.uncalibrated"))}</p>`;
-  const target = 160;                                   // report pixels
+  const target = 0.22;                                  // about a fifth of the plan's width
   const steps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
   let best = steps[0], err = Infinity;
   for (const cm of steps) {
-    const e = Math.abs(cm / level.cmPerPx - target);
+    const e = Math.abs(cm / level.cmPerPx / planWidthPx - target);
     if (e < err) { best = cm; err = e; }
   }
-  const px = Math.round(best / level.cmPerPx);
+  const share = (best / level.cmPerPx / planWidthPx) * 100;
   const label = formatCm(best, lang, unit);
   return `
     <div class="scale">
       <span class="scale-label">${esc(t("report.scale"))}</span>
-      <span class="scale-draw" style="width:${px}px"><i></i><i class="alt"></i></span>
+      <span class="scale-draw" style="width:${share.toFixed(2)}%"><i></i><i class="alt"></i></span>
       <span class="scale-label">${esc(label)}</span>
     </div>`;
 }
@@ -61,7 +79,8 @@ function measurementRows(list, lang, unit) {
     `<tr><th>${esc(name(m))}</th><td>${esc(formatCm(m.valueCm, lang, unit))}</td></tr>`).join("")}</table>`;
 }
 
-/** Build the whole document. `floors` is [{ level, planUri, pins, rooms }] where each
+/** Build the whole document. `floors` is [{ level, planUri, box, walls, pins, rooms }] where
+ *  `planUri` is null for a drawn floor, and each
  *  pin already carries its measurements, room name and photo data URIs. */
 export function buildHtml({ project, floors, scheme, unit, withPhotos }) {
   const lang = currentLanguage();
@@ -90,10 +109,10 @@ export function buildHtml({ project, floors, scheme, unit, withPhotos }) {
       <section class="page">
         <h2 class="floor-title">${esc(f.level.name)}</h2>
         <div class="plan-wrap">
-          <img src="${f.planUri}" alt="">
-          ${planSvg(f.level, f.pins, f.rooms, scheme, f.width, f.height)}
+          ${f.planUri ? `<img src="${f.planUri}" alt="">` : ""}
+          ${planSvg(f.level, f.pins, f.rooms, f.walls, scheme, f.box, !!f.planUri)}
         </div>
-        ${scaleBlock(f.level, lang, unit)}
+        ${scaleBlock(f.level, lang, unit, f.box.w)}
       </section>`;
 
     if (!f.pins.length) {
@@ -150,6 +169,7 @@ export function buildHtml({ project, floors, scheme, unit, withPhotos }) {
   .plan-wrap { position: relative; line-height: 0; }
   .plan-wrap img { width: 100%; height: auto; }
   .plan-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .plan-drawn { display: block; width: 100%; height: auto; max-height: 235mm; }
   .scale { display: flex; align-items: center; gap: 8pt; margin-top: 10pt; font-size: 9pt; color: #5a615d; }
   .scale-draw { display: flex; height: 7pt; border: 0.7pt solid #1c211f; }
   .scale-draw i { flex: 1 1 0; }

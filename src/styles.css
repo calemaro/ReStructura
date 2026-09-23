@@ -376,3 +376,28 @@ button[aria-pressed="true"]#pin-edit-pos { background: #a85d0c; border-color: #a
 
 #btn-rename-floor { padding: 3px 6px; display: grid; place-items: center; }
 #btn-rename-floor svg { display: block; }
+
+/* ---- plan editor ----------------------------------------------------------------------- */
+.editor-bar {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 950;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; max-width: calc(100% - 24px);
+  background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 7px 10px; font-size: 12.5px;
+}
+.editor-bar[hidden] { display: none; }
+.editor-bar .btn-group button { font-size: 12.5px; padding: 4px 11px; }
+.editor-bar .btn-group button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ed-field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.ed-field[hidden] { display: none; }
+.ed-field input[type="text"] { width: 7.5em; font: inherit; font-family: var(--mono); padding: 3px 6px;
+  border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); }
+.ed-field input[type="text"]:disabled { opacity: 0.5; }
+.ed-field input[type="range"] { width: 90px; }
+/* While editing, clicks belong to the editor: pins, room labels and rulers stay
+   visible but let the click through to the plan. */
+.plan.editing-walls { cursor: crosshair; }
+.plan.editing-walls .leaflet-marker-icon,
+.plan.editing-walls .leaflet-interactive { pointer-events: none !important; }
+.wall-len { cursor: default; }
+.wall-len.selected { border-color: #0b5fa5; color: #0b5fa5; font-weight: 600; }
+.wall-len.preview { border-color: #a85d0c; color: #a85d0c; font-weight: 600; }
