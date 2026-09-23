@@ -20,6 +20,7 @@ import * as history from "./history.js";
 import * as settings from "./settings.js";
 import { t } from "./i18n.js";
 import { setStatus, showError, showContextMenu } from "./ui.js";
+import { unitHint } from "./units.js";
 
 const SNAP_PX = 10;              // screen pixels: how close counts as "on" a corner or wall
 const HANDLE_PX = 9;             // screen pixels: how close counts as clicking a corner handle
@@ -44,8 +45,8 @@ let busy = false;                // a database write is in flight; ignore clicks
 
 const $ = (sel) => document.querySelector(sel);
 const bar = $("#editor-bar");
-const wallBtn = $("#ed-wall");
-const selectBtn = $("#ed-select");
+const palette = $("#editor-tools");
+const toolBtns = [...palette.querySelectorAll("[data-tool]")];
 const lengthInput = $("#ed-length");
 const thickInput = $("#ed-thickness");
 const imageWrap = $("#ed-image-wrap");
@@ -241,8 +242,11 @@ const thickness = () => {
 
 function refreshBar() {
   if (!active) return;
-  wallBtn.setAttribute("aria-pressed", String(tool === "wall"));
-  selectBtn.setAttribute("aria-pressed", String(tool === "select"));
+  for (const b of toolBtns) b.setAttribute("aria-pressed", String(b.dataset.tool === tool));
+  $("#ed-tool-name").textContent = t(tool === "wall" ? "editor.wall" : "editor.select");
+  // the unit a bare number is read in; any unit can still be typed explicitly
+  const u = settings.value("units");
+  for (const el of bar.querySelectorAll(".ed-unit")) el.textContent = u === "ftin" ? "ft in" : u === "in" ? "in" : unitHint(u);
   const one = selected.size === 1 ? walls.find((w) => w.id === [...selected][0]) : null;
   const lengthUsable = (tool === "wall" && !!chain) || (tool === "select" && !!one);
   lengthInput.disabled = !lengthUsable;
@@ -460,9 +464,7 @@ async function selectClick(raw, e) {
 // ---- entering and leaving ------------------------------------------------------------
 export function init(hooks) {
   ctx = hooks;
-  wallBtn.addEventListener("click", () => setTool("wall"));
-  selectBtn.addEventListener("click", () => setTool("select"));
-  $("#ed-done").addEventListener("click", () => exit());
+  for (const b of toolBtns) b.addEventListener("click", () => setTool(b.dataset.tool));
   lengthInput.addEventListener("input", () => { lengthInput.classList.remove("invalid"); if (tool === "wall") renderPreview(); });
   lengthInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); typedLength(); }
@@ -526,14 +528,17 @@ export function contentBox() {
   return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
-export function enter(startTool = "wall") {
+/** Open the editor. Without a tool: Select when there are walls to work on, else Wall. */
+export function enter(startTool) {
   if (!map || !level) return false;
   if (!cmPerPx()) { setStatus(t("editor.needScale")); return false; }
+  startTool ??= walls.length ? "select" : "wall";
   if (active) { setTool(startTool); return true; }
   active = true;
   ctx.onEnter?.();
   tool = startTool;
   bar.hidden = false;
+  palette.hidden = false;
   imageWrap.hidden = !overlay;
   if (overlay) { imageRange.value = 35; overlay.setOpacity(0.35); }
   map.getContainer().classList.add("editing-walls");
@@ -549,6 +554,7 @@ export function exit() {
   active = false;
   selected.clear();
   bar.hidden = true;
+  palette.hidden = true;
   overlay?.setOpacity(1);
   map?.getContainer().classList.remove("editing-walls");
   map?.doubleClickZoom.enable();
@@ -596,10 +602,8 @@ export function contextMenu(latlng, at) {
     items.push({ separator: true });
   }
   items.push(
-    { text: t("editor.wall"), action: () => setTool("wall") },
     { text: t("editor.select"), action: () => setTool("select") },
-    { separator: true },
-    { text: t("editor.done"), action: () => exit() },
+    { text: t("editor.wall"), action: () => setTool("wall") },
   );
   showContextMenu(items, at);
 }
@@ -614,8 +618,8 @@ export function onKey(e) {
     e.preventDefault();
     if (moving) cancelMove();
     else if (chain) finishChain();
+    else if (tool === "wall") setTool("select");
     else if (selected.size) { selected.clear(); render(); hint(); }
-    else exit();
     return true;
   }
   if (e.key === "Enter" && chain) { e.preventDefault(); finishChain(); return true; }
@@ -627,7 +631,7 @@ export function onKey(e) {
   if (mod && ["c", "x", "v"].includes(k)) { e.preventDefault(); return true; }   // pins are out of reach while editing
   if (mod || e.altKey) return false;
   if (k === "w") { setTool("wall"); return true; }
-  if (k === "s") { setTool("select"); return true; }
+  if (k === "s" || k === "v") { setTool("select"); return true; }
   // typing a number while drawing starts the length box with that character
   if (tool === "wall" && chain && /^[0-9.,]$/.test(e.key)) {
     e.preventDefault();
@@ -638,6 +642,9 @@ export function onKey(e) {
   }
   return false;
 }
+
+/** The unit preference changed: lengths on screen and the unit hints follow. */
+export function refreshUnits() { render(); renderPreview(); hint(); }
 
 /** End any half-finished gesture, before undo/redo changes the walls underneath it. */
 export function settle() { finishChain(); cancelMove(); }

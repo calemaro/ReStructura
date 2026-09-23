@@ -553,7 +553,6 @@ $("#btn-add-menu").addEventListener("click", (e) => {
   showContextMenu([
     { text: t("menu.addPin"), enabled: !!level, action: () => setPlacing(true) },
     { text: t("menu.addRoom"), enabled: !!level, action: () => setPlacingRoom(true) },
-    { text: t("menu.addWalls"), enabled: !!level, action: () => openEditor("wall") },
     { separator: true },
     { text: t("menu.addLevel"), action: importPlanFlow },
     { text: t("menu.addDrawnLevel"), action: drawnLevelFlow },
@@ -944,14 +943,29 @@ editor.init({
     setPlacing(false); setPlacingRoom(false); stopPicking();
     if (selectedRulerId != null) { selectedRulerId = null; renderRulers(); }
     addBtn.disabled = true; roomBtn.disabled = true; scaleBtn.disabled = true;
+    renderMode();
   },
   onExit: () => {
     addBtn.disabled = !level; roomBtn.disabled = !level; scaleBtn.disabled = !level;
     setStatus(t("status.ready"));
+    renderMode();
   },
 });
 
-function openEditor(tool = "wall") {
+// Two modes, switched in the header: Document (pins, photos, room names, measurements)
+// and Draw (the plan editor, with its own tool palette).
+const modeDoc = $("#mode-document");
+const modeDraw = $("#mode-draw");
+function renderMode() {
+  const drawing = editor.isActive();
+  modeDoc.setAttribute("aria-pressed", String(!drawing));
+  modeDraw.setAttribute("aria-pressed", String(drawing));
+  $(".mode-switch").hidden = !level;
+}
+modeDoc.addEventListener("click", () => editor.exit());
+modeDraw.addEventListener("click", () => { if (!editor.isActive()) openEditor(); });
+
+function openEditor(tool) {
   if (!level) return;
   if (editor.enter(tool)) return;
   if (!cmPerPx()) {
@@ -1018,6 +1032,7 @@ function snippet(text, needle, span = 70) {
 
 async function openSearch() {
   if (!project) return;
+  editor.exit();                     // search is about pins: back to Document mode
   hidePanel(); hideRoomPanel();
   searchActive = true;
   searchPanelEl.hidden = false;
@@ -1364,6 +1379,7 @@ $("#set-project-scheme").addEventListener("change", async (e) => {
 function redrawUnits() {
   renderScaleBar();
   renderRulers();
+  editor.refreshUnits();
   if (selectedId != null) { renderMeasurements(measurements); showPin(selectedId); }
   if (selectedRoomId != null) showRoom(selectedRoomId);
 }
@@ -1379,7 +1395,6 @@ function planMenu(latlng, at) {
     { text: t("menu.pasteHere"), enabled: clipboard.length > 0, action: () => { cursorLatLng = latlng; pasteClipboard(); } },
     { separator: true },
     { text: t("menu.measure"), enabled: !!cmPerPx(), action: () => startPicking("measure") },
-    { text: t("menu.drawWalls"), action: () => openEditor("wall") },
     { text: t("menu.fitView"), action: fitView },
   ];
   showContextMenu(items, at);
@@ -1511,6 +1526,20 @@ function renderLegend() {
   for (const k of Object.keys(SCHEMES)) schemeSelect.add(new Option(t("scheme." + k), k));
   schemeSelect.value = scheme;
 }
+// The legend can fold down to a small tab: it is large, and not needed all the time.
+const legendToggle = $("#legend-toggle");
+function applyLegendCollapsed() {
+  const collapsed = !!settings.value("legendCollapsed");
+  legendEl.classList.toggle("collapsed", collapsed);
+  legendToggle.setAttribute("aria-expanded", String(!collapsed));
+  const label = t(collapsed ? "legend.show" : "legend.hide");
+  legendToggle.title = label;
+  legendToggle.setAttribute("aria-label", label);
+}
+function toggleLegend() { settings.set({ legendCollapsed: !settings.value("legendCollapsed") }); applyLegendCollapsed(); }
+legendToggle.addEventListener("click", toggleLegend);
+legendEl.querySelector(".legend-head strong").addEventListener("click", () => { if (settings.value("legendCollapsed")) toggleLegend(); });
+
 schemeSelect.addEventListener("change", async () => {
   try {
     project = await api.setColourScheme(schemeSelect.value);
@@ -1637,6 +1666,8 @@ document.addEventListener("languagechange", () => {
   if (!settingsEl.hidden) fillSettingsOptions();
   if (searchActive) { fillSearchFilters(); runSearch(); }
   setPlacing(placing);
+  editor.refreshUnits();
+  applyLegendCollapsed();
 });
 
 // ---- screens: the main menu and the plan --------------------------------------------
@@ -1693,6 +1724,7 @@ async function showLevel(lvl) {
   scaleBtn.disabled = !lvl;
   stopPicking();
   renderScale();
+  renderMode();
   if (!lvl) { setStatus(t("start.title")); return 0; }
 
   // A drawn floor has no image: its size is the sheet it was created with.
