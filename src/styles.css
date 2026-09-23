@@ -226,6 +226,15 @@ button.danger:hover { background: rgba(179, 38, 30, 0.08); }
   background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.10); padding: 10px 12px; font-size: 12.5px; }
 .legend[hidden] { display: none; }
 .legend-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; margin-bottom: 8px; }
+.legend-toggle { padding: 2px 4px; line-height: 0; }
+.legend-toggle svg { transition: transform 0.15s; }
+/* Collapsed: only the title and the toggle remain, as a small tab in the corner. */
+.legend.collapsed { width: auto; padding: 6px 8px 6px 12px; }
+.legend.collapsed .legend-head { margin: 0; gap: 10px; }
+.legend.collapsed .legend-scheme, .legend.collapsed .legend-list, .legend.collapsed .legend-hint { display: none; }
+.legend.collapsed .legend-toggle svg { transform: rotate(180deg); }
+.legend-head strong { cursor: default; }
+.legend.collapsed .legend-head strong { cursor: pointer; }
 .legend-scheme { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: var(--ink-2); font-size: 11.5px; width: 100%; }
 .legend-scheme select { padding: 2px 6px; font-size: 11.5px; max-width: 55%; }
 .legend-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
@@ -376,3 +385,51 @@ button[aria-pressed="true"]#pin-edit-pos { background: #a85d0c; border-color: #a
 
 #btn-rename-floor { padding: 3px 6px; display: grid; place-items: center; }
 #btn-rename-floor svg { display: block; }
+
+/* ---- plan editor ----------------------------------------------------------------------- */
+.editor-bar {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 950;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; max-width: calc(100% - 24px);
+  background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 7px 10px; font-size: 12.5px;
+}
+.editor-bar[hidden] { display: none; }
+.ed-tool-name { font-size: 12.5px; padding: 2px 12px 2px 2px; border-right: 1px solid var(--rule); }
+.ed-unit { font-style: normal; font-family: var(--mono); color: var(--ink-2); min-width: 1.6em; }
+
+/* Tool palette: one button per thing that can be drawn, like an image editor's
+   toolbox. Sits under Leaflet's zoom buttons. */
+.editor-tools {
+  position: absolute; left: 10px; top: 86px; z-index: 950;
+  display: flex; flex-direction: column; gap: 4px; padding: 5px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.editor-tools[hidden] { display: none; }
+.editor-tools button {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: 54px; padding: 6px 2px 4px; border: 1px solid transparent; border-radius: 4px;
+  background: transparent; color: var(--ink); font-size: 10.5px; line-height: 1.1; cursor: pointer;
+}
+.editor-tools button:hover { background: var(--paper); }
+.editor-tools button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.editor-tools button:disabled { opacity: 0.4; cursor: default; }
+
+/* Document | Draw switch in the header */
+.mode-switch[hidden] { display: none; }
+.mode-switch button { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 11px; }
+.mode-switch button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ed-field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.ed-field[hidden] { display: none; }
+.ed-field input[type="text"] { width: 7.5em; font: inherit; font-family: var(--mono); padding: 3px 6px;
+  border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); }
+.ed-field input[type="text"]:disabled { opacity: 0.5; }
+.ed-field input[type="range"] { width: 90px; }
+/* While editing, clicks belong to the editor: pins, room labels and rulers stay
+   visible but let the click through to the plan. */
+.plan.editing-walls { cursor: crosshair; }
+.plan.editing-walls .leaflet-marker-icon,
+.plan.editing-walls .leaflet-interactive { pointer-events: none !important; }
+.wall-len { cursor: default; }
+.wall-len.selected { border-color: #0b5fa5; color: #0b5fa5; font-weight: 600; }
+.wall-len.preview { border-color: #a85d0c; color: #a85d0c; font-weight: 600; }

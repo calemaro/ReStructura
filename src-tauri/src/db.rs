@@ -32,6 +32,12 @@ pub struct Level {
     /// Never stored: it would break the moment the project moves to another computer.
     #[serde(default)]
     pub image_file: String,
+    /// Size of the drawing sheet for a floor drawn in the editor, which has no
+    /// image to take a size from. None for floors made from an imported image.
+    #[serde(default)]
+    pub width_px: Option<f64>,
+    #[serde(default)]
+    pub height_px: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -139,7 +145,12 @@ pub struct Measurement {
 /// errors are ordinary values that the type system forces you to deal with.
 pub fn open(path: &Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
+    init(&conn)?;
+    Ok(conn)
+}
 
+/// Create any missing tables and bring an older layout up to date.
+fn init(conn: &Connection) -> rusqlite::Result<()> {
     // Sensible SQLite defaults for a desktop app: crash-safe journaling,
     // and enforce the REFERENCES clauses below (SQLite ignores them otherwise).
     conn.execute_batch(
@@ -153,7 +164,9 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             name        TEXT    NOT NULL,
             image_path  TEXT    NOT NULL,
             sort_order  INTEGER NOT NULL DEFAULT 0,
-            cm_per_px   REAL
+            cm_per_px   REAL,
+            width_px    REAL,
+            height_px   REAL
          );
          CREATE TABLE IF NOT EXISTS pins (
             id          INTEGER PRIMARY KEY,
@@ -206,11 +219,21 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
          CREATE INDEX IF NOT EXISTS pins_by_level ON pins(level_id);
          CREATE INDEX IF NOT EXISTS measurements_by_pin ON measurements(pin_id);
          CREATE INDEX IF NOT EXISTS rooms_by_level ON rooms(level_id);
-         CREATE INDEX IF NOT EXISTS rulers_by_level ON rulers(level_id);",
+         CREATE TABLE IF NOT EXISTS walls (
+            id           INTEGER PRIMARY KEY,
+            level_id     INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+            x1           REAL    NOT NULL,
+            y1           REAL    NOT NULL,
+            x2           REAL    NOT NULL,
+            y2           REAL    NOT NULL,
+            thickness_cm REAL    NOT NULL
+         );
+         CREATE INDEX IF NOT EXISTS rulers_by_level ON rulers(level_id);
+         CREATE INDEX IF NOT EXISTS walls_by_level ON walls(level_id);",
     )?;
 
-    migrate(&conn)?;
-    Ok(conn)
+    migrate(conn)?;
+    Ok(())
 }
 
 /// Bring an older database up to the current layout.
@@ -220,7 +243,7 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
 /// and is applied in order, so a database from any earlier release ends up
 /// current. `CREATE TABLE IF NOT EXISTS` above already handles brand-new
 /// files, which is why a fresh database starts at the latest version.
-const DB_VERSION: i64 = 8;
+const DB_VERSION: i64 = 9;
 
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let mut v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
@@ -303,6 +326,19 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         // rulers table: created by the CREATE TABLE IF NOT EXISTS block above.
         v = 8;
     }
+    if v < 9 {
+        // walls table: created above. Drawn floors need a sheet size.
+        let has: bool = conn
+            .prepare("SELECT 1 FROM pragma_table_info('levels') WHERE name = 'width_px'")?
+            .exists([])?;
+        if !has {
+            conn.execute_batch(
+                "ALTER TABLE levels ADD COLUMN width_px REAL;
+                 ALTER TABLE levels ADD COLUMN height_px REAL;",
+            )?;
+        }
+        v = 9;
+    }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
 }
@@ -331,7 +367,7 @@ pub fn seed_demo(conn: &Connection, image_path: &str) -> rusqlite::Result<()> {
 
 pub fn list_levels(conn: &Connection) -> rusqlite::Result<Vec<Level>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, image_path, sort_order, cm_per_px FROM levels ORDER BY sort_order, id",
+        "SELECT id, name, image_path, sort_order, cm_per_px, width_px, height_px FROM levels ORDER BY sort_order, id",
     )?;
     // query_map runs the statement and turns each row into a Level via the closure.
     // collect() gathers them into a Vec, stopping at the first error if any.
@@ -341,7 +377,7 @@ pub fn list_levels(conn: &Connection) -> rusqlite::Result<Vec<Level>> {
 
 pub fn get_level(conn: &Connection, id: i64) -> rusqlite::Result<Option<Level>> {
     conn.query_row(
-        "SELECT id, name, image_path, sort_order, cm_per_px FROM levels WHERE id = ?1",
+        "SELECT id, name, image_path, sort_order, cm_per_px, width_px, height_px FROM levels WHERE id = ?1",
         [id],
         row_to_level,
     )
@@ -356,6 +392,8 @@ fn row_to_level(r: &rusqlite::Row<'_>) -> rusqlite::Result<Level> {
         sort_order: r.get(3)?,
         cm_per_px: r.get(4)?,
         image_file: String::new(),
+        width_px: r.get(5)?,
+        height_px: r.get(6)?,
     })
 }
 
@@ -758,6 +796,95 @@ pub fn delete_ruler(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
 }
 
 // ---------------------------------------------------------------------------
+// drawn floors and walls (the plan editor)
+// ---------------------------------------------------------------------------
+
+/// A floor drawn in the editor: no image, a fixed sheet, one pixel = one
+/// centimetre, so it is calibrated by construction.
+pub fn add_drawn_level(
+    conn: &Connection,
+    name: &str,
+    width_cm: f64,
+    height_cm: f64,
+) -> rusqlite::Result<Level> {
+    conn.execute(
+        "INSERT INTO levels (name, image_path, sort_order, cm_per_px, width_px, height_px)
+         VALUES (?1, '', (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM levels), 1.0, ?2, ?3)",
+        params![name.trim(), width_cm, height_cm],
+    )?;
+    Ok(get_level(conn, conn.last_insert_rowid())?.expect("level just inserted must exist"))
+}
+
+/// One straight wall: its centre line in plan pixels, and its thickness in real
+/// centimetres (so recalibrating an imported plan keeps walls the right width).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Wall {
+    #[serde(default)]
+    pub id: i64,
+    pub level_id: i64,
+    pub x1: f64,
+    pub y1: f64,
+    pub x2: f64,
+    pub y2: f64,
+    pub thickness_cm: f64,
+}
+
+const WALL_COLS: &str = "id, level_id, x1, y1, x2, y2, thickness_cm";
+
+fn row_to_wall(r: &rusqlite::Row<'_>) -> rusqlite::Result<Wall> {
+    Ok(Wall {
+        id: r.get(0)?,
+        level_id: r.get(1)?,
+        x1: r.get(2)?,
+        y1: r.get(3)?,
+        x2: r.get(4)?,
+        y2: r.get(5)?,
+        thickness_cm: r.get(6)?,
+    })
+}
+
+fn get_wall(conn: &Connection, id: i64) -> rusqlite::Result<Option<Wall>> {
+    conn.query_row(
+        &format!("SELECT {WALL_COLS} FROM walls WHERE id = ?1"),
+        [id],
+        row_to_wall,
+    )
+    .optional()
+}
+
+pub fn list_walls(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Wall>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {WALL_COLS} FROM walls WHERE level_id = ?1 ORDER BY id"
+    ))?;
+    let rows = stmt.query_map([level_id], row_to_wall)?;
+    rows.collect()
+}
+
+pub fn add_wall(conn: &Connection, w: &Wall) -> rusqlite::Result<Wall> {
+    conn.execute(
+        "INSERT INTO walls (level_id, x1, y1, x2, y2, thickness_cm) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![w.level_id, w.x1, w.y1, w.x2, w.y2, w.thickness_cm],
+    )?;
+    Ok(get_wall(conn, conn.last_insert_rowid())?.expect("wall just inserted must exist"))
+}
+
+/// Replace a wall's geometry and thickness, or re-create a deleted wall with its
+/// old id (undo). Both are the same statement.
+pub fn put_wall(conn: &Connection, w: &Wall) -> rusqlite::Result<Wall> {
+    conn.execute(
+        "INSERT OR REPLACE INTO walls (id, level_id, x1, y1, x2, y2, thickness_cm)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![w.id, w.level_id, w.x1, w.y1, w.x2, w.y2, w.thickness_cm],
+    )?;
+    Ok(get_wall(conn, w.id)?.expect("wall just written must exist"))
+}
+
+pub fn delete_wall(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
+    conn.execute("DELETE FROM walls WHERE id = ?1", [id])
+}
+
+// ---------------------------------------------------------------------------
 // search — across every floor of the open project
 // ---------------------------------------------------------------------------
 
@@ -828,4 +955,104 @@ pub fn search_context(conn: &Connection) -> rusqlite::Result<Vec<SearchHit>> {
         });
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fresh() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        init(&conn).unwrap();
+        conn
+    }
+
+    fn has_column(conn: &Connection, table: &str, col: &str) -> bool {
+        conn.prepare(&format!(
+            "SELECT 1 FROM pragma_table_info('{table}') WHERE name = '{col}'"
+        ))
+        .unwrap()
+        .exists([])
+        .unwrap()
+    }
+
+    #[test]
+    fn a_new_database_is_at_the_latest_version() {
+        let conn = fresh();
+        let v: i64 = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(v, DB_VERSION);
+        assert!(has_column(&conn, "levels", "width_px"));
+    }
+
+    #[test]
+    fn version_8_gains_walls_and_sheet_size() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE levels (id INTEGER PRIMARY KEY, name TEXT NOT NULL, image_path TEXT NOT NULL,
+                                  sort_order INTEGER NOT NULL DEFAULT 0, cm_per_px REAL);
+             CREATE TABLE pins (id INTEGER PRIMARY KEY, level_id INTEGER NOT NULL, x REAL NOT NULL,
+                                y REAL NOT NULL, label TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+                                category TEXT NOT NULL DEFAULT 'other', room_id INTEGER,
+                                created_at TEXT NOT NULL DEFAULT '');
+             CREATE TABLE photos (id INTEGER PRIMARY KEY, pin_id INTEGER NOT NULL, file_path TEXT NOT NULL,
+                                  thumb_path TEXT NOT NULL DEFAULT '', caption TEXT NOT NULL DEFAULT '',
+                                  created_at TEXT NOT NULL DEFAULT '');
+             INSERT INTO levels (name, image_path) VALUES ('Old', 'plans/old.png');
+             PRAGMA user_version = 8;",
+        )
+        .unwrap();
+        init(&conn).unwrap();
+        assert!(has_column(&conn, "levels", "height_px"));
+        let old = get_level(&conn, 1).unwrap().unwrap();
+        assert_eq!(old.width_px, None);
+        assert!(list_walls(&conn, 1).unwrap().is_empty());
+    }
+
+    #[test]
+    fn walls_round_trip_and_follow_their_floor() {
+        let conn = fresh();
+        let lvl = add_drawn_level(&conn, " Soppalco ", 4000.0, 3000.0).unwrap();
+        assert_eq!(lvl.name, "Soppalco");
+        assert_eq!(lvl.image_path, "");
+        assert_eq!(lvl.cm_per_px, Some(1.0));
+        assert_eq!(lvl.width_px, Some(4000.0));
+
+        let new = Wall {
+            id: 0,
+            level_id: lvl.id,
+            x1: 100.0,
+            y1: 100.0,
+            x2: 450.5,
+            y2: 100.0,
+            thickness_cm: 12.0,
+        };
+        let w = add_wall(&conn, &new).unwrap();
+        assert!(w.id > 0);
+        assert_eq!(w.x2, 450.5);
+
+        // put_wall replaces in place...
+        let moved = put_wall(
+            &conn,
+            &Wall {
+                y2: 300.0,
+                ..w.clone()
+            },
+        )
+        .unwrap();
+        assert_eq!(moved.id, w.id);
+        assert_eq!(list_walls(&conn, lvl.id).unwrap()[0].y2, 300.0);
+
+        // ...and brings a deleted wall back with its old id (undo)
+        assert_eq!(delete_wall(&conn, w.id).unwrap(), 1);
+        assert!(list_walls(&conn, lvl.id).unwrap().is_empty());
+        let back = put_wall(&conn, &moved).unwrap();
+        assert_eq!(back.id, w.id);
+
+        // deleting the floor deletes its walls
+        conn.execute("DELETE FROM levels WHERE id = ?1", [lvl.id])
+            .unwrap();
+        assert!(list_walls(&conn, lvl.id).unwrap().is_empty());
+    }
 }

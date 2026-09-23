@@ -30,6 +30,13 @@ export const listLevels = ()               => invoke("list_levels");
 export const importPlan = (srcPath, name)  => invoke("import_plan", { srcPath, name });
 export const setLevelScale = (levelId, cmPerPx) => invoke("set_level_scale", { levelId, cmPerPx });
 export const renameLevel   = (levelId, name)    => invoke("rename_level", { levelId, name });
+export const addDrawnLevel = (name)             => invoke("add_drawn_level", { name });
+
+// ---- walls (plan editor) --------------------------------------------------------------
+export const listWalls   = (levelId) => invoke("list_walls", { levelId });
+export const addWall     = (wall)    => invoke("add_wall", { wall });
+export const putWalls    = (walls)   => invoke("put_walls", { walls });
+export const deleteWalls = (ids)     => invoke("delete_walls", { ids });
 
 // ---- pins ----------------------------------------------------------------------------
 export const listPins   = (levelId)                    => invoke("list_pins", { levelId });

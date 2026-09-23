@@ -23,6 +23,7 @@ import { CATEGORIES, SCHEMES, colourFor, pinIcon } from "./categories.js";
 import { parseCm as parseCmRaw, formatCm as formatCmRaw, inputCm as inputCmRaw, UNIT_SYSTEMS, scaleSteps, scaleLabel } from "./units.js";
 import * as settings from "./settings.js";
 import { buildHtml as buildReport } from "./report.js";
+import * as editor from "./editor.js";
 
 // Unit-aware wrappers: everything in this file keeps calling parseCm/formatCm/inputCm
 // and the active preference is applied in one place.
@@ -537,6 +538,7 @@ async function reloadRooms() {
 
 // ---- placing a new label
 function setPlacingRoom(on) {
+  if (on) editor.exit();
   placingRoom = on && !!level;
   planEl.classList.toggle("drawing", placingRoom);
   roomBtn.setAttribute("aria-pressed", String(placingRoom));
@@ -553,6 +555,7 @@ $("#btn-add-menu").addEventListener("click", (e) => {
     { text: t("menu.addRoom"), enabled: !!level, action: () => setPlacingRoom(true) },
     { separator: true },
     { text: t("menu.addLevel"), action: importPlanFlow },
+    { text: t("menu.addDrawnLevel"), action: drawnLevelFlow },
   ], { x: r.left, y: r.bottom + 4 });
 });
 
@@ -751,11 +754,14 @@ const realCm = (a, b) => (cmPerPx() ? pxDistance(a, b) * cmPerPx() : null);
 function renderScale() {
   const k = cmPerPx();
   const busy = picking?.mode === "calibrate";
+  scaleBtn.hidden = !!level && !level.imagePath;
   scaleEl.classList.toggle("on", !!k && !busy);
   scaleBtn.classList.toggle("active", busy);
   $("#scale-text").textContent = busy
     ? t("scale.calibrating")
-    : k
+    : level && !level.imagePath
+      ? t("scale.drawn")
+      : k
       ? t("scale.value", { cm: (Math.round(k * 100) / 100).toLocaleString(currentLanguage()) })
       : t("scale.uncalibrated");
   scaleBtn.textContent = t(busy ? "scale.calibrating" : k ? "scale.recalibrate" : "scale.calibrate");
@@ -875,6 +881,8 @@ function stopPicking() {
 
 function startPicking(mode) {
   if (!level) return;
+  editorAfterCalibration = false;
+  editor.exit();
   hidePanel(); hideRoomPanel();
   setPlacing(false); setPlacingRoom(false);
   picking = { mode, first: null, line: null };
@@ -908,16 +916,79 @@ async function pickedPoint(latlng, shiftKey) {
     level = updated;
     const i = levels.findIndex((l) => l.id === updated.id);
     if (i >= 0) levels[i] = updated;
+    editor.updateLevel(updated);
     renderScale();
     setStatus(value
       ? t("scale.done", { cm: (Math.round(value * 100) / 100).toLocaleString(currentLanguage()) })
       : t("scale.cleared"));
   };
   try { await history.run({ label: t("history.setScale"), do: () => apply(after), undo: () => apply(before) }); }
-  catch (err) { showError(err); }
+  catch (err) { showError(err); return; }
+  if (editorAfterCalibration) { editorAfterCalibration = false; openEditor(); }
 }
 
 scaleBtn.addEventListener("click", () => (picking ? stopPicking() : startPicking("calibrate")));
+
+// ---- plan editor (walls) ---------------------------------------------------------------
+// The editor lives in editor.js; this file routes clicks and keys to it and keeps the
+// other modes out of its way.
+let editorAfterCalibration = false;   // "Draw walls" on an uncalibrated plan calibrates first
+
+editor.init({
+  formatCm: (cm) => formatCm(cm, currentLanguage()),
+  parseCm,
+  inputCm,
+  onEnter: () => {
+    hidePanel(); hideRoomPanel();
+    setPlacing(false); setPlacingRoom(false); stopPicking();
+    if (selectedRulerId != null) { selectedRulerId = null; renderRulers(); }
+    addBtn.disabled = true; roomBtn.disabled = true; scaleBtn.disabled = true;
+    renderMode();
+  },
+  onExit: () => {
+    addBtn.disabled = !level; roomBtn.disabled = !level; scaleBtn.disabled = !level;
+    setStatus(t("status.ready"));
+    renderMode();
+  },
+});
+
+// Two modes, switched in the header: Document (pins, photos, room names, measurements)
+// and Draw (the plan editor, with its own tool palette).
+const modeDoc = $("#mode-document");
+const modeDraw = $("#mode-draw");
+function renderMode() {
+  const drawing = editor.isActive();
+  modeDoc.setAttribute("aria-pressed", String(!drawing));
+  modeDraw.setAttribute("aria-pressed", String(drawing));
+  $(".mode-switch").hidden = !level;
+}
+modeDoc.addEventListener("click", () => editor.exit());
+modeDraw.addEventListener("click", () => { if (!editor.isActive()) openEditor(); });
+
+function openEditor(tool) {
+  if (!level) return;
+  if (editor.enter(tool)) return;
+  if (!cmPerPx()) {
+    startPicking("calibrate");
+    editorAfterCalibration = true;
+    setStatus(t("editor.needScale"));
+  }
+}
+
+/** Fit the view: the whole image, or on a drawn floor the walls drawn so far. */
+function fitView() {
+  if (!map) return;
+  const box = !level?.imagePath ? editor.contentBox() : null;
+  if (box) {
+    const pad = 150;                                        // 1.5 m around the drawing
+    map.fitBounds(L.latLngBounds(toLatLng(box.minX - pad, box.maxY + pad), toLatLng(box.maxX + pad, box.minY - pad)));
+  } else if (!level?.imagePath) {
+    const c = bounds.getCenter();                           // an empty sheet: show about 16 m
+    map.fitBounds(L.latLngBounds([c.lat - 500, c.lng - 800], [c.lat + 500, c.lng + 800]));
+  } else {
+    map.fitBounds(bounds);
+  }
+}
 
 /** With exactly two pins selected and a calibrated plan, report the distance between them. */
 function reportPinDistance() {
@@ -961,6 +1032,7 @@ function snippet(text, needle, span = 70) {
 
 async function openSearch() {
   if (!project) return;
+  editor.exit();                     // search is about pins: back to Document mode
   hidePanel(); hideRoomPanel();
   searchActive = true;
   searchPanelEl.hidden = false;
@@ -1139,8 +1211,13 @@ async function buildAndPrint() {
 
     const floors = [];
     for (const lvl of chosen) {
-      const planUri = await api.planImage(lvl.imagePath);
-      const { width, height } = await loadImageSize(api.fileUrl(lvl.imageFile));
+      const walls = await api.listWalls(lvl.id);
+      let planUri = null, box = null;
+      if (lvl.imagePath) {
+        planUri = await api.planImage(lvl.imagePath);
+        const { width, height } = await loadImageSize(api.fileUrl(lvl.imageFile));
+        box = { x: 0, y: 0, w: width, h: height };
+      }
       const rooms = await api.listRooms(lvl.id);
       const roomName = new Map(rooms.map((r) => [r.id, r.name]));
       const pinRows = (await api.listPins(lvl.id));
@@ -1157,7 +1234,8 @@ async function buildAndPrint() {
         }
         pins.push({ ...p, roomName: p.roomId != null ? roomName.get(p.roomId) : null, measurements, photos });
       }
-      floors.push({ level: lvl, planUri, width, height, rooms, pins });
+      box ??= drawnBox(walls, pins, rooms, lvl);
+      floors.push({ level: lvl, planUri, box, walls, rooms, pins });
     }
 
     const html = buildReport({ project, floors, scheme, unit: unit(), withPhotos });
@@ -1170,6 +1248,17 @@ async function buildAndPrint() {
     $("#report-go").disabled = false;
     progress.hidden = true;
   }
+}
+
+/** On a drawn floor the report shows the drawing, not the whole 40 m sheet: the box
+ *  around walls, pins and room labels, with a margin. */
+function drawnBox(walls, pins, rooms, lvl) {
+  const xs = [...walls.flatMap((w) => [w.x1, w.x2]), ...pins.map((p) => p.x), ...rooms.map((r) => r.x)];
+  const ys = [...walls.flatMap((w) => [w.y1, w.y2]), ...pins.map((p) => p.y), ...rooms.map((r) => r.y)];
+  if (!xs.length) return { x: 0, y: 0, w: lvl.widthPx, h: lvl.heightPx };
+  const pad = 120;
+  const x = Math.min(...xs) - pad, y = Math.min(...ys) - pad;
+  return { x, y, w: Math.max(...xs) + pad - x, h: Math.max(...ys) + pad - y };
 }
 
 /** Print a self-contained document. The webview blocks window.open, so the report is
@@ -1290,6 +1379,7 @@ $("#set-project-scheme").addEventListener("change", async (e) => {
 function redrawUnits() {
   renderScaleBar();
   renderRulers();
+  editor.refreshUnits();
   if (selectedId != null) { renderMeasurements(measurements); showPin(selectedId); }
   if (selectedRoomId != null) showRoom(selectedRoomId);
 }
@@ -1305,7 +1395,7 @@ function planMenu(latlng, at) {
     { text: t("menu.pasteHere"), enabled: clipboard.length > 0, action: () => { cursorLatLng = latlng; pasteClipboard(); } },
     { separator: true },
     { text: t("menu.measure"), enabled: !!cmPerPx(), action: () => startPicking("measure") },
-    { text: t("menu.fitView"), action: () => map && map.fitBounds(bounds) },
+    { text: t("menu.fitView"), action: fitView },
   ];
   showContextMenu(items, at);
 }
@@ -1436,6 +1526,20 @@ function renderLegend() {
   for (const k of Object.keys(SCHEMES)) schemeSelect.add(new Option(t("scheme." + k), k));
   schemeSelect.value = scheme;
 }
+// The legend can fold down to a small tab: it is large, and not needed all the time.
+const legendToggle = $("#legend-toggle");
+function applyLegendCollapsed() {
+  const collapsed = !!settings.value("legendCollapsed");
+  legendEl.classList.toggle("collapsed", collapsed);
+  legendToggle.setAttribute("aria-expanded", String(!collapsed));
+  const label = t(collapsed ? "legend.show" : "legend.hide");
+  legendToggle.title = label;
+  legendToggle.setAttribute("aria-label", label);
+}
+function toggleLegend() { settings.set({ legendCollapsed: !settings.value("legendCollapsed") }); applyLegendCollapsed(); }
+legendToggle.addEventListener("click", toggleLegend);
+legendEl.querySelector(".legend-head strong").addEventListener("click", () => { if (settings.value("legendCollapsed")) toggleLegend(); });
+
 schemeSelect.addEventListener("change", async () => {
   try {
     project = await api.setColourScheme(schemeSelect.value);
@@ -1448,6 +1552,7 @@ schemeSelect.addEventListener("change", async () => {
 
 // ---- "Add pin" mode ------------------------------------------------------------------
 function setPlacing(on) {
+  if (on) editor.exit();
   placing = on && !!level;
   addBtn.setAttribute("aria-pressed", String(placing));
   addBtn.textContent = t(placing ? "toolbar.cancel" : "toolbar.addPin");
@@ -1490,6 +1595,7 @@ let historyState = { canUndo: false, canRedo: false };
 history.onChange((st) => { historyState = st; undoBtn.disabled = !st.canUndo; redoBtn.disabled = !st.canRedo; });
 async function doUndo() {
   if (!historyState.canUndo) return;
+  editor.settle();
   const what = historyState.undoLabel;
   await flushSave();
   await flushMeasSave();
@@ -1497,6 +1603,7 @@ async function doUndo() {
 }
 async function doRedo() {
   if (!historyState.canRedo) return;
+  editor.settle();
   const what = historyState.redoLabel;
   try { await history.redo(); setStatus(t("status.redone", { what })); } catch (err) { showError(err); }
 }
@@ -1504,6 +1611,7 @@ undoBtn.addEventListener("click", doUndo);
 redoBtn.addEventListener("click", doRedo);
 
 document.addEventListener("keydown", (e) => {
+  if (settingsEl.hidden && editor.onKey(e)) return;
   if (!viewerEl.hidden) {
     if (e.key === "Escape") { e.preventDefault(); closeViewer(); return; }
     if (document.activeElement !== viewerCaption) {
@@ -1558,11 +1666,14 @@ document.addEventListener("languagechange", () => {
   if (!settingsEl.hidden) fillSettingsOptions();
   if (searchActive) { fillSearchFilters(); runSearch(); }
   setPlacing(placing);
+  editor.refreshUnits();
+  applyLegendCollapsed();
 });
 
 // ---- screens: the main menu and the plan --------------------------------------------
 function showScreen(which) {
   const plan = which === "plan";
+  if (!plan) editor.exit();
   $("#menu-bar").hidden = plan;
   $("#plan-bar").hidden = !plan;
   $("#statusbar").hidden = !plan;
@@ -1597,6 +1708,7 @@ async function showLevel(lvl) {
   await flushMeasSave();
   hidePanel();
   history.clear();
+  editor.detach();
   if (map) { map.remove(); map = null; }
   pins = new Map();
   selection.clear(); editingId = null; cursorLatLng = null;
@@ -1612,10 +1724,12 @@ async function showLevel(lvl) {
   scaleBtn.disabled = !lvl;
   stopPicking();
   renderScale();
+  renderMode();
   if (!lvl) { setStatus(t("start.title")); return 0; }
 
-  const url = api.fileUrl(lvl.imageFile);
-  const { width, height } = await loadImageSize(url);
+  // A drawn floor has no image: its size is the sheet it was created with.
+  const url = lvl.imagePath ? api.fileUrl(lvl.imageFile) : null;
+  const { width, height } = url ? await loadImageSize(url) : { width: lvl.widthPx, height: lvl.heightPx };
   imageHeight = height;
   // In CRS.Simple one map unit = one image pixel at zoom 0. Bounds are
   // [[south, west], [north, east]] = [[0, 0], [height, width]].
@@ -1626,12 +1740,15 @@ async function showLevel(lvl) {
     attributionControl: false,
     maxBounds: bounds.pad(0.5), maxBoundsViscosity: 0.6,
   });
-  L.imageOverlay(url, bounds).addTo(map);
+  const overlay = url ? L.imageOverlay(url, bounds, { pane: "plan-base" }) : null;
+  await editor.attach(map, lvl, { height, overlay, bounds });   // creates the panes, draws sheet and walls
+  overlay?.addTo(map);
   roomLayer = L.layerGroup().addTo(map);
   rulerLayer = L.layerGroup().addTo(map);
-  map.fitBounds(bounds);
+  fitView();
   renderScaleBar();
   map.on("click", (e) => {
+    if (editor.isActive()) return editor.click(e.latlng, e.originalEvent);
     if (picking) return pickedPoint(e.latlng, e.originalEvent?.shiftKey);
     if (placingRoom) return createRoomAt(e.latlng);
     if (movingRoomId != null) return moveRoomTo(movingRoomId, e.latlng);
@@ -1641,9 +1758,12 @@ async function showLevel(lvl) {
     if (selection.size) { hidePanel(); }
     setStatus(t("status.clicked", toPixel(e.latlng)));
   });
-  map.on("contextmenu", (e) => { if (!placing && !placingRoom && editingId == null) planMenu(e.latlng, { x: e.originalEvent.clientX, y: e.originalEvent.clientY }); });
+  map.on("contextmenu", (e) => {
+    if (editor.isActive()) return editor.contextMenu(e.latlng, { x: e.originalEvent.clientX, y: e.originalEvent.clientY });
+    if (!placing && !placingRoom && editingId == null) planMenu(e.latlng, { x: e.originalEvent.clientX, y: e.originalEvent.clientY }); });
   map.on("mousemove", (e) => {
     cursorLatLng = e.latlng;
+    if (editor.isActive()) return editor.move(e.latlng, e.originalEvent);
     if (picking?.first) {
       const to = constrainToAxis(picking.first, toPixel(e.latlng), e.originalEvent?.shiftKey);
       const lls = [toLatLng(picking.first.x, picking.first.y), toLatLng(to.x, to.y)];
@@ -1681,7 +1801,7 @@ $("#btn-rename-floor").addEventListener("click", async () => {
   catch (err) { showError(err); }
 });
 
-$("#btn-fit").addEventListener("click", () => map && map.fitBounds(bounds));
+$("#btn-fit").addEventListener("click", fitView);
 
 async function importPlanFlow() {
   try {
@@ -1698,6 +1818,19 @@ async function importPlanFlow() {
 }
 $("#btn-import-plan").addEventListener("click", importPlanFlow);
 $("#start-import").addEventListener("click", importPlanFlow);
+
+/** A new floor with no image: an empty sheet, straight into the wall editor. */
+async function drawnLevelFlow() {
+  try {
+    const name = await askText(t("plan.namePrompt"), { placeholder: t("plan.namePlaceholder") });
+    if (!name) return;
+    const lvl = await api.addDrawnLevel(name);
+    levels.push(lvl);
+    await showLevel(lvl);
+    openEditor("wall");
+  } catch (err) { showError(err); }
+}
+$("#start-draw").addEventListener("click", drawnLevelFlow);
 
 // ---- projects ------------------------------------------------------------------------
 async function onProjectOpened(p) {

@@ -12,6 +12,8 @@ const DEFAULTS = {
   theme: "system",           // "system" | "light" | "dark"
   units: "cm",               // see units.js — display only; storage is always cm
   defaultColourScheme: "it", // applied to newly created projects
+  wallThicknessCm: 10,       // plan editor: thickness of the next wall drawn
+  legendCollapsed: false,    // the pin legend folded down to a small tab
 };
 
 let current = { ...DEFAULTS };
