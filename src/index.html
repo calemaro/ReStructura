@@ -11,9 +11,14 @@
     <!-- Main menu header: app-wide controls only -->
     <header class="toolbar menu-bar" id="menu-bar">
       <div class="brand"><span class="brand-name" data-i18n="app.title"></span><span class="brand-tagline" data-i18n="app.tagline"></span></div>
-      <button class="btn-settings" type="button" data-i18n-attr="title:settings.open,aria-label:settings.open">
+      <div class="menu-actions">
+        <button class="btn-help" type="button" data-i18n-attr="title:help.open,aria-label:help.open">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.5-2.7 4"/><circle cx="12" cy="17.4" r="0.6" fill="currentColor"/></svg>
+        </button>
+        <button class="btn-settings" type="button" data-i18n-attr="title:settings.open,aria-label:settings.open">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
+      </div>
     </header>
 
     <!-- Plan header: shown only while a project is open -->
@@ -52,6 +57,9 @@
         <button id="btn-search" type="button" data-i18n-attr="title:search.open"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></button>
         <button id="btn-export" type="button"><span data-i18n="export.title"></span> ▾</button>
         <button id="btn-fit" type="button" data-i18n="toolbar.zoomFit"></button>
+        <button class="btn-help" type="button" data-i18n-attr="title:help.open,aria-label:help.open">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.5-2.7 4"/><circle cx="12" cy="17.4" r="0.6" fill="currentColor"/></svg>
+        </button>
         <button class="btn-settings" type="button" data-i18n-attr="title:settings.open,aria-label:settings.open">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
@@ -252,6 +260,24 @@
           <button id="viewer-remove" type="button" class="danger" data-i18n="photos.remove"></button>
         </div>
       </div>
+
+      <!-- Help: every feature and shortcut, searchable; content from help/<lang>.json -->
+      <section id="help" class="chooser help-screen" hidden>
+        <div class="chooser-card help-card">
+          <div class="chooser-head">
+            <h1 data-i18n="help.title"></h1>
+            <div class="help-head-actions">
+              <button id="help-tour" type="button" data-i18n="help.replay"></button>
+              <button id="help-close" type="button" class="icon-btn" data-i18n-attr="title:help.close,aria-label:help.close">×</button>
+            </div>
+          </div>
+          <input id="help-search" type="search" class="help-search" autocomplete="off" spellcheck="false" data-i18n-attr="placeholder:help.search,aria-label:help.search">
+          <div class="help-columns">
+            <nav id="help-toc" class="help-toc" data-i18n-attr="aria-label:help.contents"></nav>
+            <div id="help-body" class="help-body"></div>
+          </div>
+        </div>
+      </section>
 
       <!-- Settings: a full screen, like the main menu -->
       <section id="settings" class="chooser" hidden>

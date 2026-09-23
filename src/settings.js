@@ -16,6 +16,9 @@ const DEFAULTS = {
   legendCollapsed: false,    // the pin legend folded down to a small tab
   doorKind: "door",          // plan editor: type used by the Door tool
   windowKind: "window",      // plan editor: type used by the Window tool
+  tourMenuDone: false,       // guided tour parts already seen (Help can show them again)
+  tourPlanDone: false,
+  tourDrawDone: false,
 };
 
 let current = { ...DEFAULTS };
