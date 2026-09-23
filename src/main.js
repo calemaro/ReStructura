@@ -938,6 +938,8 @@ editor.init({
   formatCm: (cm) => formatCm(cm, currentLanguage()),
   parseCm,
   inputCm,
+  // a drawn floor's sheet grew or shrank: fitting and panning follow it
+  onSheet: (b) => { bounds = b; map?.setMaxBounds(b.pad(0.5)); },
   onEnter: () => {
     hidePanel(); hideRoomPanel();
     setPlacing(false); setPlacingRoom(false); stopPicking();
@@ -1212,6 +1214,7 @@ async function buildAndPrint() {
     const floors = [];
     for (const lvl of chosen) {
       const walls = await api.listWalls(lvl.id);
+      const openings = await api.listOpenings(lvl.id);
       let planUri = null, box = null;
       if (lvl.imagePath) {
         planUri = await api.planImage(lvl.imagePath);
@@ -1235,7 +1238,7 @@ async function buildAndPrint() {
         pins.push({ ...p, roomName: p.roomId != null ? roomName.get(p.roomId) : null, measurements, photos });
       }
       box ??= drawnBox(walls, pins, rooms, lvl);
-      floors.push({ level: lvl, planUri, box, walls, rooms, pins });
+      floors.push({ level: lvl, planUri, box, walls, openings, rooms, pins });
     }
 
     const html = buildReport({ project, floors, scheme, unit: unit(), withPhotos });
@@ -1741,7 +1744,7 @@ async function showLevel(lvl) {
     maxBounds: bounds.pad(0.5), maxBoundsViscosity: 0.6,
   });
   const overlay = url ? L.imageOverlay(url, bounds, { pane: "plan-base" }) : null;
-  await editor.attach(map, lvl, { height, overlay, bounds });   // creates the panes, draws sheet and walls
+  await editor.attach(map, lvl, { height, overlay });   // creates the panes, draws sheet and walls
   overlay?.addTo(map);
   roomLayer = L.layerGroup().addTo(map);
   rulerLayer = L.layerGroup().addTo(map);

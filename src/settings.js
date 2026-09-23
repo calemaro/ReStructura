@@ -14,6 +14,8 @@ const DEFAULTS = {
   defaultColourScheme: "it", // applied to newly created projects
   wallThicknessCm: 10,       // plan editor: thickness of the next wall drawn
   legendCollapsed: false,    // the pin legend folded down to a small tab
+  doorKind: "door",          // plan editor: type used by the Door tool
+  windowKind: "window",      // plan editor: type used by the Window tool
 };
 
 let current = { ...DEFAULTS };

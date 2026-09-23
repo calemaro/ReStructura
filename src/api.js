@@ -37,6 +37,10 @@ export const listWalls   = (levelId) => invoke("list_walls", { levelId });
 export const addWall     = (wall)    => invoke("add_wall", { wall });
 export const putWalls    = (walls)   => invoke("put_walls", { walls });
 export const deleteWalls = (ids)     => invoke("delete_walls", { ids });
+export const listOpenings   = (levelId)  => invoke("list_openings", { levelId });
+export const addOpening     = (opening)  => invoke("add_opening", { opening });
+export const putOpenings    = (openings) => invoke("put_openings", { openings });
+export const deleteOpenings = (ids)      => invoke("delete_openings", { ids });
 
 // ---- pins ----------------------------------------------------------------------------
 export const listPins   = (levelId)                    => invoke("list_pins", { levelId });

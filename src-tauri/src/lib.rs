@@ -268,6 +268,49 @@ fn put_walls(state: State<AppState>, walls: Vec<db::Wall>) -> R<Vec<db::Wall>> {
 }
 
 #[tauri::command]
+fn list_openings(state: State<AppState>, level_id: i64) -> R<Vec<db::Opening>> {
+    with_project(&state, |conn, _| {
+        db::list_openings(conn, level_id).map_err(s)
+    })
+}
+
+#[tauri::command]
+fn add_opening(state: State<AppState>, opening: db::Opening) -> R<db::Opening> {
+    if !(opening.width_px.is_finite() && opening.width_px > 0.0) {
+        return Err("an opening needs a positive width".into());
+    }
+    with_project_mut(&state, |conn, _| db::add_opening(conn, &opening).map_err(s))
+}
+
+/// Update several openings, or bring deleted ones back (undo). All or nothing.
+#[tauri::command]
+fn put_openings(state: State<AppState>, openings: Vec<db::Opening>) -> R<Vec<db::Opening>> {
+    with_project_mut(&state, |conn, _| {
+        let tx = conn.unchecked_transaction().map_err(s)?;
+        let out = openings
+            .iter()
+            .map(|o| db::put_opening(&tx, o))
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(s)?;
+        tx.commit().map_err(s)?;
+        Ok(out)
+    })
+}
+
+#[tauri::command]
+fn delete_openings(state: State<AppState>, ids: Vec<i64>) -> R<usize> {
+    with_project_mut(&state, |conn, _| {
+        let tx = conn.unchecked_transaction().map_err(s)?;
+        let mut n = 0;
+        for id in ids {
+            n += db::delete_opening(&tx, id).map_err(s)?;
+        }
+        tx.commit().map_err(s)?;
+        Ok(n)
+    })
+}
+
+#[tauri::command]
 fn delete_walls(state: State<AppState>, ids: Vec<i64>) -> R<usize> {
     with_project_mut(&state, |conn, _| {
         let tx = conn.unchecked_transaction().map_err(s)?;
@@ -605,6 +648,10 @@ pub fn run() {
             add_wall,
             put_walls,
             delete_walls,
+            list_openings,
+            add_opening,
+            put_openings,
+            delete_openings,
             list_pins,
             add_pin,
             update_pin,

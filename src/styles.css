@@ -433,3 +433,7 @@ button[aria-pressed="true"]#pin-edit-pos { background: #a85d0c; border-color: #a
 .wall-len { cursor: default; }
 .wall-len.selected { border-color: #0b5fa5; color: #0b5fa5; font-weight: 600; }
 .wall-len.preview { border-color: #a85d0c; color: #a85d0c; font-weight: 600; }
+.wall-len.dim { font-size: 11px; padding: 3px 7px; color: #5a615d; }
+.ed-field select { font: inherit; padding: 3px 6px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); }
+.ed-flips { gap: 4px; }
+.ed-flips button { font-size: 12px; padding: 3px 9px; }

@@ -228,8 +228,19 @@ fn init(conn: &Connection) -> rusqlite::Result<()> {
             y2           REAL    NOT NULL,
             thickness_cm REAL    NOT NULL
          );
+         CREATE TABLE IF NOT EXISTS openings (
+            id          INTEGER PRIMARY KEY,
+            level_id    INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+            wall_id     INTEGER NOT NULL REFERENCES walls(id) ON DELETE CASCADE,
+            kind        TEXT    NOT NULL,
+            offset_px   REAL    NOT NULL,
+            width_px    REAL    NOT NULL,
+            hinge       INTEGER NOT NULL DEFAULT 0,
+            side        INTEGER NOT NULL DEFAULT 1
+         );
          CREATE INDEX IF NOT EXISTS rulers_by_level ON rulers(level_id);
-         CREATE INDEX IF NOT EXISTS walls_by_level ON walls(level_id);",
+         CREATE INDEX IF NOT EXISTS walls_by_level ON walls(level_id);
+         CREATE INDEX IF NOT EXISTS openings_by_level ON openings(level_id);",
     )?;
 
     migrate(conn)?;
@@ -243,7 +254,7 @@ fn init(conn: &Connection) -> rusqlite::Result<()> {
 /// and is applied in order, so a database from any earlier release ends up
 /// current. `CREATE TABLE IF NOT EXISTS` above already handles brand-new
 /// files, which is why a fresh database starts at the latest version.
-const DB_VERSION: i64 = 9;
+const DB_VERSION: i64 = 10;
 
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let mut v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
@@ -338,6 +349,10 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             )?;
         }
         v = 9;
+    }
+    if v < 10 {
+        // openings table: created by the CREATE TABLE IF NOT EXISTS block above.
+        v = 10;
     }
     conn.pragma_update(None, "user_version", v)?;
     Ok(())
@@ -871,10 +886,16 @@ pub fn add_wall(conn: &Connection, w: &Wall) -> rusqlite::Result<Wall> {
 
 /// Replace a wall's geometry and thickness, or re-create a deleted wall with its
 /// old id (undo). Both are the same statement.
+///
+/// An UPSERT, deliberately not `INSERT OR REPLACE`: REPLACE deletes the old row
+/// first, and that delete would cascade to the doors and windows in the wall.
 pub fn put_wall(conn: &Connection, w: &Wall) -> rusqlite::Result<Wall> {
     conn.execute(
-        "INSERT OR REPLACE INTO walls (id, level_id, x1, y1, x2, y2, thickness_cm)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO walls (id, level_id, x1, y1, x2, y2, thickness_cm)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+         ON CONFLICT(id) DO UPDATE SET level_id = excluded.level_id,
+            x1 = excluded.x1, y1 = excluded.y1, x2 = excluded.x2, y2 = excluded.y2,
+            thickness_cm = excluded.thickness_cm",
         params![w.id, w.level_id, w.x1, w.y1, w.x2, w.y2, w.thickness_cm],
     )?;
     Ok(get_wall(conn, w.id)?.expect("wall just written must exist"))
@@ -882,6 +903,106 @@ pub fn put_wall(conn: &Connection, w: &Wall) -> rusqlite::Result<Wall> {
 
 pub fn delete_wall(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
     conn.execute("DELETE FROM walls WHERE id = ?1", [id])
+}
+
+/// A door, window or plain opening in a wall. Positioned ALONG its wall — from the
+/// wall's first end, in plan pixels — so it moves with the wall when a corner moves.
+///
+/// `kind`: door · double_door · pocket_door · opening · window · french_window ·
+/// french_window_2 · fixed_window. `hinge` 0/1: the hinge (or the pocket) is at the
+/// start or the end of the opening. `side` ±1: which face of the wall it opens to.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Opening {
+    #[serde(default)]
+    pub id: i64,
+    pub level_id: i64,
+    pub wall_id: i64,
+    pub kind: String,
+    pub offset_px: f64,
+    pub width_px: f64,
+    #[serde(default)]
+    pub hinge: i64,
+    #[serde(default = "default_side")]
+    pub side: i64,
+}
+fn default_side() -> i64 {
+    1
+}
+
+const OPENING_COLS: &str = "id, level_id, wall_id, kind, offset_px, width_px, hinge, side";
+
+fn row_to_opening(r: &rusqlite::Row<'_>) -> rusqlite::Result<Opening> {
+    Ok(Opening {
+        id: r.get(0)?,
+        level_id: r.get(1)?,
+        wall_id: r.get(2)?,
+        kind: r.get(3)?,
+        offset_px: r.get(4)?,
+        width_px: r.get(5)?,
+        hinge: r.get(6)?,
+        side: r.get(7)?,
+    })
+}
+
+fn get_opening(conn: &Connection, id: i64) -> rusqlite::Result<Option<Opening>> {
+    conn.query_row(
+        &format!("SELECT {OPENING_COLS} FROM openings WHERE id = ?1"),
+        [id],
+        row_to_opening,
+    )
+    .optional()
+}
+
+pub fn list_openings(conn: &Connection, level_id: i64) -> rusqlite::Result<Vec<Opening>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {OPENING_COLS} FROM openings WHERE level_id = ?1 ORDER BY id"
+    ))?;
+    let rows = stmt.query_map([level_id], row_to_opening)?;
+    rows.collect()
+}
+
+pub fn add_opening(conn: &Connection, o: &Opening) -> rusqlite::Result<Opening> {
+    conn.execute(
+        "INSERT INTO openings (level_id, wall_id, kind, offset_px, width_px, hinge, side)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            o.level_id,
+            o.wall_id,
+            o.kind,
+            o.offset_px,
+            o.width_px,
+            o.hinge,
+            o.side
+        ],
+    )?;
+    Ok(get_opening(conn, conn.last_insert_rowid())?.expect("opening just inserted must exist"))
+}
+
+/// Update an opening, or bring a deleted one back with its old id (undo).
+pub fn put_opening(conn: &Connection, o: &Opening) -> rusqlite::Result<Opening> {
+    conn.execute(
+        "INSERT INTO openings (id, level_id, wall_id, kind, offset_px, width_px, hinge, side)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+         ON CONFLICT(id) DO UPDATE SET level_id = excluded.level_id, wall_id = excluded.wall_id,
+            kind = excluded.kind, offset_px = excluded.offset_px, width_px = excluded.width_px,
+            hinge = excluded.hinge, side = excluded.side",
+        params![
+            o.id,
+            o.level_id,
+            o.wall_id,
+            o.kind,
+            o.offset_px,
+            o.width_px,
+            o.hinge,
+            o.side
+        ],
+    )?;
+    Ok(get_opening(conn, o.id)?.expect("opening just written must exist"))
+}
+
+pub fn delete_opening(conn: &Connection, id: i64) -> rusqlite::Result<usize> {
+    conn.execute("DELETE FROM openings WHERE id = ?1", [id])
 }
 
 // ---------------------------------------------------------------------------
@@ -1054,5 +1175,65 @@ mod tests {
         conn.execute("DELETE FROM levels WHERE id = ?1", [lvl.id])
             .unwrap();
         assert!(list_walls(&conn, lvl.id).unwrap().is_empty());
+    }
+
+    #[test]
+    fn openings_survive_moving_their_wall_and_go_with_it() {
+        let conn = fresh();
+        let lvl = add_drawn_level(&conn, "Main", 4000.0, 3000.0).unwrap();
+        let w = add_wall(
+            &conn,
+            &Wall {
+                id: 0,
+                level_id: lvl.id,
+                x1: 0.0,
+                y1: 0.0,
+                x2: 500.0,
+                y2: 0.0,
+                thickness_cm: 10.0,
+            },
+        )
+        .unwrap();
+        let door = add_opening(
+            &conn,
+            &Opening {
+                id: 0,
+                level_id: lvl.id,
+                wall_id: w.id,
+                kind: "door".into(),
+                offset_px: 100.0,
+                width_px: 80.0,
+                hinge: 0,
+                side: -1,
+            },
+        )
+        .unwrap();
+        assert_eq!(door.side, -1);
+
+        // moving a corner rewrites the wall: its door must not be cascaded away
+        put_wall(
+            &conn,
+            &Wall {
+                x2: 600.0,
+                ..w.clone()
+            },
+        )
+        .unwrap();
+        assert_eq!(list_openings(&conn, lvl.id).unwrap().len(), 1);
+
+        let flipped = put_opening(
+            &conn,
+            &Opening {
+                hinge: 1,
+                ..door.clone()
+            },
+        )
+        .unwrap();
+        assert_eq!(flipped.id, door.id);
+        assert_eq!(flipped.hinge, 1);
+
+        // deleting the wall takes its openings with it
+        delete_wall(&conn, w.id).unwrap();
+        assert!(list_openings(&conn, lvl.id).unwrap().is_empty());
     }
 }

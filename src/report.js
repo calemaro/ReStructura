@@ -8,27 +8,26 @@
 import { t, currentLanguage } from "./i18n.js";
 import { colourFor, CATEGORIES } from "./categories.js";
 import { formatCm } from "./units.js";
+import { planShapes } from "./plan-shapes.js";
 
 const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const nl2br = (v) => esc(v).replace(/\n/g, "<br>");
 
-/** Walls as filled outlines, the same shape the editor draws (square ends). */
-function wallsSvg(walls, cmPerPx) {
-  return walls.map((w) => {
-    const len = Math.hypot(w.x2 - w.x1, w.y2 - w.y1);
-    if (!len) return "";
-    const h = w.thicknessCm / cmPerPx / 2;
-    const ux = (w.x2 - w.x1) / len, uy = (w.y2 - w.y1) / len;
-    const nx = -uy * h, ny = ux * h;
-    const sx = w.x1 - ux * h, sy = w.y1 - uy * h, ex = w.x2 + ux * h, ey = w.y2 + uy * h;
-    const pts = [[sx + nx, sy + ny], [ex + nx, ey + ny], [ex - nx, ey - ny], [sx - nx, sy - ny]];
-    return `<polygon points="${pts.map((p) => p.map((v) => v.toFixed(1)).join(",")).join(" ")}" fill="#2e3230"/>`;
+/** Walls, doors and windows: the same shapes and symbols the editor draws. Line
+ *  widths stay in paper units whatever the plan's size (non-scaling strokes). */
+function wallsSvg(walls, openings, cmPerPx) {
+  const pts = (list) => list.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  return planShapes(walls, openings, cmPerPx).map((sh) => {
+    const stroke = `stroke="#2e3230" stroke-width="${(sh.weight ?? 1) * 0.75}" vector-effect="non-scaling-stroke"${sh.dash ? ` stroke-dasharray="3 2"` : ""}`;
+    if (sh.type === "fill") return `<polygon points="${pts(sh.pts)}" fill="#2e3230"/>`;
+    if (sh.type === "outline") return `<polygon points="${pts(sh.pts)}" fill="${sh.paper ? "#fff" : "none"}" ${stroke}/>`;
+    return `<polyline points="${pts(sh.pts)}" fill="none" ${stroke}/>`;
   }).join("");
 }
 
 /** Walls, room names and numbered pin markers, in plan pixels. `box` is the part of
  *  the plan shown: the whole image, or on a drawn floor just the drawing. */
-function planSvg(level, pins, rooms, walls, scheme, box, overlay) {
+function planSvg(level, pins, rooms, walls, openings, scheme, box, overlay) {
   const width = box.w;
   const marks = pins.map((p, i) => {
     const colour = colourFor(scheme, p.category);
@@ -48,7 +47,7 @@ function planSvg(level, pins, rooms, walls, scheme, box, overlay) {
             stroke-linejoin="round">${esc(room.name)}${h}</text>`;
   }).join("");
   const cls = overlay ? "plan-overlay" : "plan-drawn";
-  return `<svg viewBox="${box.x} ${box.y} ${box.w} ${box.h}" xmlns="http://www.w3.org/2000/svg" class="${cls}">${wallsSvg(walls, level.cmPerPx ?? 1)}${labels}${marks}</svg>`;
+  return `<svg viewBox="${box.x} ${box.y} ${box.w} ${box.h}" xmlns="http://www.w3.org/2000/svg" class="${cls}">${wallsSvg(walls, openings, level.cmPerPx ?? 1)}${labels}${marks}</svg>`;
 }
 
 /** A scale bar in the report, drawn to the floor's calibration. Its width is a share
@@ -79,7 +78,7 @@ function measurementRows(list, lang, unit) {
     `<tr><th>${esc(name(m))}</th><td>${esc(formatCm(m.valueCm, lang, unit))}</td></tr>`).join("")}</table>`;
 }
 
-/** Build the whole document. `floors` is [{ level, planUri, box, walls, pins, rooms }] where
+/** Build the whole document. `floors` is [{ level, planUri, box, walls, openings, pins, rooms }] where
  *  `planUri` is null for a drawn floor, and each
  *  pin already carries its measurements, room name and photo data URIs. */
 export function buildHtml({ project, floors, scheme, unit, withPhotos }) {
@@ -110,7 +109,7 @@ export function buildHtml({ project, floors, scheme, unit, withPhotos }) {
         <h2 class="floor-title">${esc(f.level.name)}</h2>
         <div class="plan-wrap">
           ${f.planUri ? `<img src="${f.planUri}" alt="">` : ""}
-          ${planSvg(f.level, f.pins, f.rooms, f.walls, scheme, f.box, !!f.planUri)}
+          ${planSvg(f.level, f.pins, f.rooms, f.walls, f.openings, scheme, f.box, !!f.planUri)}
         </div>
         ${scaleBlock(f.level, lang, unit, f.box.w)}
       </section>`;
