@@ -24,6 +24,8 @@ import { parseCm as parseCmRaw, formatCm as formatCmRaw, inputCm as inputCmRaw, 
 import * as settings from "./settings.js";
 import { buildHtml as buildReport } from "./report.js";
 import * as editor from "./editor.js";
+import * as help from "./help.js";
+import * as tour from "./tour.js";
 
 // Unit-aware wrappers: everything in this file keeps calling parseCm/formatCm/inputCm
 // and the active preference is applied in one place.
@@ -946,6 +948,7 @@ editor.init({
     if (selectedRulerId != null) { selectedRulerId = null; renderRulers(); }
     addBtn.disabled = true; roomBtn.disabled = true; scaleBtn.disabled = true;
     renderMode();
+    setTimeout(() => maybeTour("draw"), 0);          // once the palette is on screen
   },
   onExit: () => {
     addBtn.disabled = !level; roomBtn.disabled = !level; scaleBtn.disabled = !level;
@@ -1614,6 +1617,8 @@ undoBtn.addEventListener("click", doUndo);
 redoBtn.addEventListener("click", doRedo);
 
 document.addEventListener("keydown", (e) => {
+  if (e.key === "F1") { e.preventDefault(); help.isOpen() ? help.close() : openHelp(); return; }
+  if (help.isOpen()) { if (e.key === "Escape") help.close(); return; }
   if (settingsEl.hidden && editor.onKey(e)) return;
   if (!viewerEl.hidden) {
     if (e.key === "Escape") { e.preventDefault(); closeViewer(); return; }
@@ -1817,6 +1822,7 @@ async function importPlanFlow() {
     levels.push(lvl);
     await showLevel(lvl);
     setStatus(t("plan.imported", { name: lvl.name }));
+    requestAnimationFrame(() => maybeTour("plan"));    // a new project's first floor
   } catch (err) { showError(err); }
 }
 $("#btn-import-plan").addEventListener("click", importPlanFlow);
@@ -1845,8 +1851,36 @@ async function onProjectOpened(p) {
   levels = await api.listLevels();
   await showLevel(levels[0] ?? null);
   if (map) map.invalidateSize();       // the plan area was hidden while the menu was up
+  if (level) requestAnimationFrame(() => maybeTour("plan"));
 }
-$("#btn-projects").addEventListener("click", async () => { await flushSave(); projects.show(); });
+$("#btn-projects").addEventListener("click", async () => { await flushSave(); await projects.show(); maybeTour("menu"); });
+
+// ---- help and the guided tour -----------------------------------------------------------
+// Help is reachable from both headers and with F1, on every screen. The tour comes in
+// three parts, each shown once when first relevant; Help can replay it.
+const TOUR_FLAGS = { menu: "tourMenuDone", plan: "tourPlanDone", draw: "tourDrawDone" };
+
+function maybeTour(name, force = false) {
+  if (tour.isRunning() || help.isOpen() || !settingsEl.hidden) return;
+  if (!force && settings.value(TOUR_FLAGS[name])) return;
+  tour.run(name, help.tourText, () => settings.set({ [TOUR_FLAGS[name]]: true }));
+}
+
+function openHelp() {
+  if (tour.isRunning()) return;
+  help.open().catch(showError);
+}
+for (const b of document.querySelectorAll(".btn-help")) b.addEventListener("click", openHelp);
+
+help.init({
+  // "Show the guided tour again": every part is shown again when reached; start with this screen's
+  onReplayTour: () => {
+    settings.set({ tourMenuDone: false, tourPlanDone: false, tourDrawDone: false });
+    if (!settingsEl.hidden) closeSettings();
+    const onPlan = !$("#plan-bar").hidden;
+    maybeTour(editor.isActive() ? "draw" : onPlan && level ? "plan" : "menu", true);
+  },
+});
 
 // ---- boot ----------------------------------------------------------------------------
 async function main() {
@@ -1858,7 +1892,8 @@ async function main() {
   addBtn.disabled = true;
   showScreen("menu");
   projects.init(onProjectOpened, () => showScreen("menu"));
-  await projects.start();            // reopens the last project or shows the chooser
+  await projects.start();            // always the main menu (the last project is only highlighted)
+  maybeTour("menu");                 // first launch: a short tour of the main menu
 }
 
 // The webview's default right-click menu (back / forward / reload / inspect) is a
