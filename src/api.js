@@ -23,6 +23,13 @@ export const projectsDir    = ()          => invoke("projects_dir");
 export const renameProject  = (slug, name)=> invoke("rename_project", { slug, name });
 export const projectStats   = ()          => invoke("project_stats");
 export const openPath       = (path)      => (tauri ? tauri.opener.openPath(path) : notDesktop());
+export const openUrl        = (url)       => (tauri ? tauri.opener.openUrl(url) : notDesktop());
+export const revealInFolder = (path)      => (tauri ? tauri.opener.revealItemInDir(path) : notDesktop());
+
+// ---- error log and saved reports -----------------------------------------------------
+export const logEvent   = (level, message) => invoke("log_event", { level, message });
+export const logPath    = ()               => invoke("log_path");
+export const saveReport = (html, name)     => invoke("save_report", { html, name });
 export const setColourScheme= (scheme)    => invoke("set_colour_scheme", { scheme });
 
 // ---- levels --------------------------------------------------------------------------
@@ -86,12 +93,12 @@ const dialog = tauri?.dialog;
 export async function pickImage(title) {
   if (!dialog) return notDesktop();
   return dialog.open({ title, multiple: false, directory: false,
-    filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp"] }] });
+    filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "heic", "heif"] }] });
 }
 export async function pickImages(title) {
   if (!dialog) return notDesktop();
   const r = await dialog.open({ title, multiple: true, directory: false,
-    filters: [{ name: "Photos", extensions: ["jpg", "jpeg", "png", "webp"] }] });
+    filters: [{ name: "Photos", extensions: ["jpg", "jpeg", "png", "webp", "heic", "heif"] }] });
   return r == null ? [] : Array.isArray(r) ? r : [r];
 }
 export async function pickZip(title) {

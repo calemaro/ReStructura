@@ -145,8 +145,30 @@ pub struct Measurement {
 /// errors are ordinary values that the type system forces you to deal with.
 pub fn open(path: &Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
+    // About to be upgraded to a newer layout: keep a copy of it as it was first, so
+    // a failed upgrade can never cost the user their project.
+    let v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    if v > 0 && v < DB_VERSION {
+        backup_before_upgrade(&conn, path, v)?;
+    }
     init(&conn)?;
     Ok(conn)
+}
+
+/// `plan.db` → `plan.db.v8.bak` (the version it had), a complete and consistent copy
+/// made by SQLite itself, even with unflushed changes in the WAL file.
+fn backup_before_upgrade(conn: &Connection, path: &Path, from: i64) -> rusqlite::Result<()> {
+    let bak = path.with_file_name(format!(
+        "{}.v{from}.bak",
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("plan.db")
+    ));
+    if bak.exists() {
+        let _ = std::fs::remove_file(&bak); // VACUUM INTO refuses to overwrite
+    }
+    conn.execute("VACUUM INTO ?1", [bak.to_string_lossy()])?;
+    Ok(())
 }
 
 /// Create any missing tables and bring an older layout up to date.
@@ -1095,6 +1117,53 @@ mod tests {
         .unwrap()
         .exists([])
         .unwrap()
+    }
+
+    #[test]
+    fn an_older_database_is_backed_up_before_the_upgrade() {
+        // inside the build folder, never outside the project
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/test-tmp/backup");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("plan.db");
+        {
+            let c = Connection::open(&db).unwrap();
+            c.execute_batch(
+                "CREATE TABLE levels (id INTEGER PRIMARY KEY, name TEXT NOT NULL, image_path TEXT NOT NULL,
+                                      sort_order INTEGER NOT NULL DEFAULT 0, cm_per_px REAL);
+                 CREATE TABLE pins (id INTEGER PRIMARY KEY, level_id INTEGER NOT NULL, x REAL NOT NULL,
+                                    y REAL NOT NULL, label TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+                                    category TEXT NOT NULL DEFAULT 'other', room_id INTEGER,
+                                    created_at TEXT NOT NULL DEFAULT '');
+                 CREATE TABLE photos (id INTEGER PRIMARY KEY, pin_id INTEGER NOT NULL, file_path TEXT NOT NULL,
+                                      thumb_path TEXT NOT NULL DEFAULT '', caption TEXT NOT NULL DEFAULT '',
+                                      created_at TEXT NOT NULL DEFAULT '');
+                 INSERT INTO levels (name, image_path) VALUES ('Kept', 'plans/a.png');
+                 PRAGMA user_version = 8;",
+            )
+            .unwrap();
+        }
+        let conn = open(&db).unwrap();
+        let bak = dir.join("plan.db.v8.bak");
+        assert!(bak.exists(), "the backup must exist");
+        let old = Connection::open(&bak).unwrap();
+        let v: i64 = old
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(v, 8, "the backup is the database as it was");
+        let name: String = old
+            .query_row("SELECT name FROM levels", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(name, "Kept");
+        let now: i64 = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(now, DB_VERSION);
+        // opening an up-to-date database makes no new backup
+        drop(conn);
+        std::fs::remove_file(&bak).unwrap();
+        open(&db).unwrap();
+        assert!(!bak.exists());
     }
 
     #[test]

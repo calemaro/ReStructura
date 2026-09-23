@@ -394,7 +394,10 @@ pub fn export_zip(dir: &Path, dest: &Path) -> R<()> {
                 zip.add_directory(format!("{name}/"), opts)
                     .map_err(io_err("zip"))?;
                 walk(zip, opts, root, &path)?;
-            } else if !(name.ends_with("plan.db-wal") || name.ends_with("plan.db-shm")) {
+            } else if !(name.ends_with("plan.db-wal")
+                || name.ends_with("plan.db-shm")
+                || name.ends_with(".bak"))
+            {
                 zip.start_file(&name, opts).map_err(io_err("zip"))?;
                 let mut f = File::open(&path).map_err(io_err("reading file"))?;
                 io::copy(&mut f, zip).map_err(io_err("zip"))?;

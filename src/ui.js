@@ -1,12 +1,59 @@
 // Small UI helpers shared by the map screen and the project chooser.
 import { t } from "./i18n.js";
+import * as api from "./api.js";
 
 const statusEl = document.querySelector("#status");
 export const setStatus = (msg) => { statusEl.textContent = msg; };
+
+/** Something failed: say so in the status bar and in a pop-up, and write it to the
+ *  error log (with the technical detail) so it can be sent to the developer. */
 export const showError = (err) => {
   console.error(err);
-  setStatus(t("error.generic", { msg: err?.message ?? String(err) }));
+  const msg = err?.message ?? String(err);
+  setStatus(t("error.generic", { msg }));
+  api.logEvent("ERROR", err?.stack ? `${msg}\n${err.stack}` : msg).catch(() => {});
+  showToast({
+    kind: "error", title: t("error.title"), text: msg, note: t("error.logged"),
+    actions: [
+      { text: t("log.show"), action: () => revealLog() },
+      { text: t("log.howTo"), action: () => onHowToReport?.() },
+    ],
+  });
 };
+
+let onHowToReport = null;
+export function setReportHandler(fn) { onHowToReport = fn; }
+
+export async function revealLog() {
+  try {
+    const path = await api.logPath();
+    if (path) await api.revealInFolder(path);
+  } catch (err) { console.error(err); }
+}
+
+/** A pop-up in the corner, red for errors and warnings, that stays until closed so the
+ *  message cannot be missed. A new one of the same kind replaces the old one. */
+export function showToast({ kind = "error", title, text, note, actions = [] }) {
+  document.querySelector(`.toast.${kind}`)?.remove();
+  const el = document.createElement("div");
+  el.className = `toast ${kind}`;
+  el.setAttribute("role", "alert");
+  el.innerHTML = `<button type="button" class="toast-close" aria-label="${t("panel.close")}">×</button>
+    <strong></strong><p class="toast-text"></p>${note ? `<p class="toast-note"></p>` : ""}<div class="toast-actions"></div>`;
+  el.querySelector("strong").textContent = title;
+  el.querySelector(".toast-text").textContent = text;
+  if (note) el.querySelector(".toast-note").textContent = note;
+  const row = el.querySelector(".toast-actions");
+  for (const a of actions) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = a.text;
+    b.onclick = () => { a.action(); };
+    row.append(b);
+  }
+  el.querySelector(".toast-close").onclick = () => el.remove();
+  document.body.append(el);
+}
 
 /** Ask for one line of text. Resolves with the string, or null if cancelled.
  *  (The webview has no window.prompt, so this is a <dialog>.) */
