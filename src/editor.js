@@ -30,13 +30,17 @@ const HANDLE_PX = 9;             // screen pixels: how close counts as clicking 
 const ANGLE_TOL = (7 * Math.PI) / 180;
 const SAME_POINT = 0.5;          // plan pixels: corners closer than this are the same corner
 const MIN_OPENING_CM = 20;
+const SHEET_STEP_CM = 500;       // a drawn floor's sheet grows in whole 5 m squares (the grid stays put)
+const SHEET_MARGIN_CM = 500;     // and keeps at least 5 m of paper beyond the drawing
 const INK = "#2e3230";           // fixed, not a theme token: the plan is white paper in both themes
 const SELECTED = "#0b5fa5";
 const PREVIEW = "#a85d0c";
 
 let ctx = null;                  // hooks from main.js: formatCm, parseCm, inputCm, onEnter, onExit
 let map = null, level = null, height = 0, overlay = null;
-let wallLayer = null, drawLayer = null;
+let wallLayer = null, drawLayer = null, sheetLayer = null;
+let baseSheet = null;            // drawn floor: the sheet it was created with, { x0, y0, x1, y1 }
+let sheetKey = "";               // the sheet currently drawn, to redraw only when it changes
 let walls = [];                  // this floor's walls, as stored
 let openings = [];               // this floor's doors and windows, as stored
 let active = false;
@@ -282,6 +286,7 @@ function render() {
     const sel = active && (sh.openingId != null ? selOps.has(sh.openingId) : selected.has(sh.wallId));
     addShape(sh, sel ? SELECTED : INK, wallLayer);
   }
+  drawSheet();
   if (active) {
     for (const w of walls.filter((x) => selected.has(x.id))) {
       for (const p of [end1(w), end2(w)]) {
@@ -317,6 +322,7 @@ function renderWallPreview() {
   }
   if (!chain) return;
   const to = previewEnd();
+  drawSheet(to);                                  // the paper follows a wall drawn past its edge
   if (!to || same(to, chain.start)) return;
   const shape = outline(chain.start, to, thickness());
   if (shape) L.polygon(shape, { pane: "plan-walls", stroke: false, fillColor: PREVIEW, fillOpacity: 0.55, interactive: false }).addTo(drawLayer);
@@ -857,15 +863,17 @@ export function init(hooks) {
 }
 
 /** A floor was shown: create the panes and draw its sheet, walls, doors and windows. */
-export async function attach(m, lvl, { height: h, overlay: ov, bounds }) {
+export async function attach(m, lvl, { height: h, overlay: ov }) {
   map = m; level = lvl; height = h; overlay = ov;
+  baseSheet = ov ? null : { x0: 0, y0: 0, x1: lvl.widthPx, y1: lvl.heightPx };
+  sheetKey = "";
   walls = []; openings = []; selected = new Set(); selOps = new Set();
   chain = null; moving = null; movingOp = null; placing = null; cursor = null; cursorRaw = null; active = false;
   // Panes stack the plan: image or sheet < walls < rulers and pins (Leaflet's own panes).
   map.createPane("plan-base").style.zIndex = 250;
   map.createPane("plan-walls").style.zIndex = 350;
   map.createPane("plan-labels").style.zIndex = 450;
-  if (!ov) drawSheet(bounds);
+  sheetLayer = L.layerGroup().addTo(map);
   wallLayer = L.layerGroup().addTo(map);
   drawLayer = L.layerGroup().addTo(map);
   [walls, openings] = await Promise.all([api.listWalls(lvl.id), api.listOpenings(lvl.id)]);
@@ -874,19 +882,49 @@ export async function attach(m, lvl, { height: h, overlay: ov, bounds }) {
 
 export function detach() {
   if (active) exit();
-  map = null; level = null; wallLayer = null; drawLayer = null; walls = []; openings = [];
+  map = null; level = null; wallLayer = null; drawLayer = null; sheetLayer = null; walls = []; openings = [];
 }
 
-/** A drawn floor is white paper with a 1 m grid, heavier every 5 m. The colours are
+/** The paper of a drawn floor: the sheet it was created with, grown to keep a margin
+ *  around every wall (and around `extra`, the wall being drawn). Worked out each time
+ *  rather than stored, so it also shrinks back when walls are undone or deleted. */
+function sheetRect(extra) {
+  const step = SHEET_STEP_CM / k(), margin = SHEET_MARGIN_CM / k();
+  const r = { ...baseSheet };
+  const pts = walls.flatMap((w) => [end1(w), end2(w)]);
+  if (extra) pts.push(extra);
+  for (const p of pts) {
+    r.x0 = Math.min(r.x0, Math.floor((p.x - margin) / step) * step);
+    r.y0 = Math.min(r.y0, Math.floor((p.y - margin) / step) * step);
+    r.x1 = Math.max(r.x1, Math.ceil((p.x + margin) / step) * step);
+    r.y1 = Math.max(r.y1, Math.ceil((p.y + margin) / step) * step);
+  }
+  return r;
+}
+
+/** A drawn floor is white paper with a 1 m grid, heavier every 5 m. The grid is laid on
+ *  whole metres of the plan, so it does not move when the sheet grows. The colours are
  *  fixed: the sheet stays paper-white in dark mode, like any imported plan. */
-function drawSheet(bounds) {
-  L.rectangle(bounds, { pane: "plan-base", color: "#c9d0cc", weight: 1, fillColor: "#ffffff", fillOpacity: 1, interactive: false }).addTo(map);
-  const w = bounds.getEast(), hgt = bounds.getNorth();
-  const minor = [], major = [];
-  for (let x = 100; x < w; x += 100) (x % 500 ? minor : major).push([toLatLng({ x, y: 0 }), toLatLng({ x, y: hgt })]);
-  for (let y = 100; y < hgt; y += 100) (y % 500 ? minor : major).push([toLatLng({ x: 0, y }), toLatLng({ x: w, y })]);
-  L.polyline(minor, { pane: "plan-base", color: "#e6ebe8", weight: 1, interactive: false }).addTo(map);
-  L.polyline(major, { pane: "plan-base", color: "#cfd7d3", weight: 1, interactive: false }).addTo(map);
+function drawSheet(extra) {
+  if (!baseSheet || !sheetLayer) return;
+  const r = sheetRect(extra);
+  const key = `${r.x0},${r.y0},${r.x1},${r.y1}`;
+  if (key === sheetKey) return;
+  sheetKey = key;
+  sheetLayer.clearLayers();
+  const b = L.latLngBounds(toLatLng({ x: r.x0, y: r.y1 }), toLatLng({ x: r.x1, y: r.y0 }));
+  L.rectangle(b, { pane: "plan-base", color: "#c9d0cc", weight: 1, fillColor: "#ffffff", fillOpacity: 1, interactive: false }).addTo(sheetLayer);
+  const m = 100 / k(), major = (v) => Math.abs(Math.round(v / m)) % 5 === 0;
+  const minorLines = [], majorLines = [];
+  for (let x = Math.ceil(r.x0 / m + 1e-9) * m; x < r.x1 - 1e-6; x += m) {
+    (major(x) ? majorLines : minorLines).push([toLatLng({ x, y: r.y0 }), toLatLng({ x, y: r.y1 })]);
+  }
+  for (let y = Math.ceil(r.y0 / m + 1e-9) * m; y < r.y1 - 1e-6; y += m) {
+    (major(y) ? majorLines : minorLines).push([toLatLng({ x: r.x0, y }), toLatLng({ x: r.x1, y })]);
+  }
+  L.polyline(minorLines, { pane: "plan-base", color: "#e6ebe8", weight: 1, interactive: false }).addTo(sheetLayer);
+  L.polyline(majorLines, { pane: "plan-base", color: "#cfd7d3", weight: 1, interactive: false }).addTo(sheetLayer);
+  ctx.onSheet?.(b);
 }
 
 /** The floor's record changed (calibrated, renamed): wall thickness depends on the scale. */

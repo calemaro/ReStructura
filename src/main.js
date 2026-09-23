@@ -938,6 +938,8 @@ editor.init({
   formatCm: (cm) => formatCm(cm, currentLanguage()),
   parseCm,
   inputCm,
+  // a drawn floor's sheet grew or shrank: fitting and panning follow it
+  onSheet: (b) => { bounds = b; map?.setMaxBounds(b.pad(0.5)); },
   onEnter: () => {
     hidePanel(); hideRoomPanel();
     setPlacing(false); setPlacingRoom(false); stopPicking();
@@ -1742,7 +1744,7 @@ async function showLevel(lvl) {
     maxBounds: bounds.pad(0.5), maxBoundsViscosity: 0.6,
   });
   const overlay = url ? L.imageOverlay(url, bounds, { pane: "plan-base" }) : null;
-  await editor.attach(map, lvl, { height, overlay, bounds });   // creates the panes, draws sheet and walls
+  await editor.attach(map, lvl, { height, overlay });   // creates the panes, draws sheet and walls
   overlay?.addTo(map);
   roomLayer = L.layerGroup().addTo(map);
   rulerLayer = L.layerGroup().addTo(map);
