@@ -4,102 +4,246 @@
       "id": "start",
       "title": "Getting started",
       "items": [
-        { "title": "What ReStructura is for", "text": "Record what is inside your walls and floors while you renovate: pipes, cables, conduits. Put a **pin** on the plan where something is, then add photos, notes and measurements, so you can find it again before you drill." },
-        { "title": "Everything stays on this computer", "text": "No account, no internet, no cloud. Each project is one folder on this computer. You can export it as a single .zip file to back it up or to hand it to someone else." },
-        { "title": "Projects", "text": "The app always opens on the **main menu**, which lists your projects: one per home or renovation. Type a name and press **Create** to start a new one. Each project in the list has **Open**, **Export…** and **Delete**. A deleted project goes to the system trash, so it can be recovered." },
-        { "title": "Your first floor", "text": "A new project asks for its first floor. **Import a plan image** (PNG or JPEG: a scan, a photo of the drawing, an export from your architect), or **Draw the plan in the editor** on an empty sheet." },
-        { "title": "Moving around the plan", "text": "Scroll to zoom and drag to pan. **Fit view** shows the whole plan again. Right-click anywhere on the plan for a menu of what you can do at that spot." },
-        { "title": "Two modes: Document and Draw", "text": "The switch in the header chooses the mode. **Document** is for pins, photos, room names and measurements. **Draw** opens the plan editor for walls, doors and windows." }
+        {
+          "title": "What ReStructura is for",
+          "text": "Record what is inside your walls and floors while you renovate: pipes, cables, conduits. Put a **pin** on the plan where something is, then add photos, notes and measurements, so you can find it again before you drill."
+        },
+        {
+          "title": "Everything stays on this computer",
+          "text": "No account, no internet, no cloud. Each project is one folder on this computer. You can export it as a single .zip file to back it up or to hand it to someone else."
+        },
+        {
+          "title": "Projects",
+          "text": "The app always opens on the **main menu**, which lists your projects: one per home or renovation. Type a name and press **Create** to start a new one. Each project in the list has **Open**, **Export…** and **Delete**. A deleted project goes to the system trash, so it can be recovered."
+        },
+        {
+          "title": "Your first floor",
+          "text": "A new project asks for its first floor. **Import a plan image** (PNG or JPEG: a scan, a photo of the drawing, an export from your architect), or **Draw the plan in the editor** on an empty sheet."
+        },
+        {
+          "title": "Moving around the plan",
+          "text": "Scroll to zoom and drag to pan. **Fit view** shows the whole plan again. Right-click anywhere on the plan for a menu of what you can do at that spot."
+        },
+        {
+          "title": "Two modes: Document and Draw",
+          "text": "The switch in the header chooses the mode. **Document** is for pins, photos, room names and measurements. **Draw** opens the plan editor for walls, doors and windows."
+        }
       ]
     },
     {
       "id": "floors",
       "title": "Floors",
       "items": [
-        { "title": "Adding a floor", "text": "**Add ▾ → Floor (plan image)…** imports another plan image. **Add ▾ → Floor (draw it)…** starts an empty sheet. A mezzanine or a basement is a floor too." },
-        { "title": "Switching and renaming floors", "text": "With two or more floors, the **Floor** list in the header switches between them. The pencil next to it renames the current floor." }
+        {
+          "title": "Adding a floor",
+          "text": "**Add ▾ → Floor (plan image)…** imports another plan image. **Add ▾ → Floor (draw it)…** starts an empty sheet. A mezzanine or a basement is a floor too."
+        },
+        {
+          "title": "Switching and renaming floors",
+          "text": "With two or more floors, the **Floor** list in the header switches between them. The pencil next to it renames the current floor."
+        }
       ]
     },
     {
       "id": "pins",
       "title": "Pins",
       "items": [
-        { "title": "Adding a pin", "text": "**Add ▾ → Pin**, then click the plan. Or right-click the spot and choose **Add pin here**. The pin panel opens on the right." },
-        { "title": "What a pin holds", "text": "A **label** (what is here), a **category** (electric power, water, gas and so on, which sets its colour), the **room** it is in, free **notes**, photos and measurements. Everything saves by itself as you type: there is no Save button." },
-        { "title": "Photos", "text": "**Attach photos…** copies JPEG, PNG or WebP pictures into the project. Click a photo to see it full size: the arrow keys move between photos, and each one can have a caption. **Remove photo** can be undone." },
-        { "title": "Measurements", "text": "**Height above floor**, **Depth in wall**, and any number of **Distance from…** a reference you name, for example “left jamb of the kitchen door”. Type a length in any unit: 112, 112 cm, 1.12 m, 44 in, 3' 8\"." },
-        { "title": "Moving a pin", "text": "Pins never move by accident. Press **Edit position** in the pin panel (or right-click the pin), then click where it should go: each click moves it. **Done** or Esc locks it again." },
-        { "title": "Several pins at once", "text": "Ctrl+click or Shift+click adds pins to the selection, and Ctrl+A selects every visible pin. Then copy, cut, paste or delete them together. Paste puts the copies at the mouse pointer and keeps their layout. Photos are not copied." },
-        { "title": "Pin colours", "text": "Pin colours follow the colour convention chosen in the **legend**: European (the default) or APWA (US). A pin stores what it is, not a colour, so switching convention recolours every pin." }
+        {
+          "title": "Adding a pin",
+          "text": "**Add ▾ → Pin**, then click the plan. Or right-click the spot and choose **Add pin here**. The pin panel opens on the right."
+        },
+        {
+          "title": "What a pin holds",
+          "text": "A **label** (what is here), a **category** (electric power, water, gas and so on, which sets its colour), the **room** it is in, free **notes**, photos and measurements. Everything saves by itself as you type: there is no Save button."
+        },
+        {
+          "title": "Photos",
+          "text": "**Attach photos…** copies JPEG, PNG or WebP pictures into the project. Click a photo to see it full size: the arrow keys move between photos, and each one can have a caption. **Remove photo** can be undone. HEIC photos (the iPhone format) cannot be used: convert them to JPEG first. The app says so, in red, if you pick one."
+        },
+        {
+          "title": "Measurements",
+          "text": "**Height above floor**, **Depth in wall**, and any number of **Distance from…** a reference you name, for example “left jamb of the kitchen door”. Type a length in any unit: 112, 112 cm, 1.12 m, 44 in, 3' 8\"."
+        },
+        {
+          "title": "Moving a pin",
+          "text": "Pins never move by accident. Press **Edit position** in the pin panel (or right-click the pin), then click where it should go: each click moves it. **Done** or Esc locks it again."
+        },
+        {
+          "title": "Several pins at once",
+          "text": "Ctrl+click or Shift+click adds pins to the selection, and Ctrl+A selects every visible pin. Then copy, cut, paste or delete them together. Paste puts the copies at the mouse pointer and keeps their layout. Photos are not copied."
+        },
+        {
+          "title": "Pin colours",
+          "text": "Pin colours follow the colour convention chosen in the **legend**: European (the default) or APWA (US). A pin stores what it is, not a colour, so switching convention recolours every pin."
+        }
       ]
     },
     {
       "id": "rooms",
       "title": "Room names",
       "items": [
-        { "title": "Naming rooms", "text": "**Add ▾ → Room label**, then click inside the room. Give it a name and, if you like, the ceiling height. Room names appear on the plan and in the printed report." },
-        { "title": "Tagging a pin with its room", "text": "In the pin panel, choose the room from the **Room** list. Search and the printed report can then use it." },
-        { "title": "Moving or deleting a room label", "text": "Click the label to open it, then **Move label** (and click the new spot) or **Delete label**. Pins tagged with a deleted room simply lose the tag." }
+        {
+          "title": "Naming rooms",
+          "text": "**Add ▾ → Room label**, then click inside the room. Give it a name and, if you like, the ceiling height. Room names appear on the plan and in the printed report."
+        },
+        {
+          "title": "Tagging a pin with its room",
+          "text": "In the pin panel, choose the room from the **Room** list. Search and the printed report can then use it."
+        },
+        {
+          "title": "Moving or deleting a room label",
+          "text": "Click the label to open it, then **Move label** (and click the new spot) or **Delete label**. Pins tagged with a deleted room simply lose the tag."
+        }
       ]
     },
     {
       "id": "scale",
       "title": "Scale and measuring",
       "items": [
-        { "title": "Calibrating a plan", "text": "A plan image has no scale until you give it one. Press **Calibrate** in the bottom bar, click the two ends of something you have measured (one wall is enough) and type its real length. Hold Shift to keep the line horizontal or vertical. The dot in the bottom bar turns green." },
-        { "title": "What calibration adds", "text": "A scale bar, the **Measure distance** tool (right-click the plan), measurements kept on the plan, and the distance between two selected pins. Everything else works without it, and lengths typed on a pin never depend on it." },
-        { "title": "Measurements kept on the plan", "text": "A measured distance stays on the plan as a dashed line with its length. Click it to select it and press Delete to remove it. Recalibrating updates them all." },
-        { "title": "Drawn floors are already to scale", "text": "A floor drawn in the editor is to scale from the start, so it needs no calibration." },
-        { "title": "How accurate is it?", "text": "Distances read off a plan are approximate: they depend on how accurately it was drawn, scanned and calibrated. For anything that matters, measure on site and type it on the pin." }
+        {
+          "title": "Calibrating a plan",
+          "text": "A plan image has no scale until you give it one. Press **Calibrate** in the bottom bar, click the two ends of something you have measured (one wall is enough) and type its real length. Hold Shift to keep the line horizontal or vertical. The dot in the bottom bar turns green."
+        },
+        {
+          "title": "What calibration adds",
+          "text": "A scale bar, the **Measure distance** tool (right-click the plan), measurements kept on the plan, and the distance between two selected pins. Everything else works without it, and lengths typed on a pin never depend on it."
+        },
+        {
+          "title": "Measurements kept on the plan",
+          "text": "A measured distance stays on the plan as a dashed line with its length. Click it to select it and press Delete to remove it. Recalibrating updates them all."
+        },
+        {
+          "title": "Drawn floors are already to scale",
+          "text": "A floor drawn in the editor is to scale from the start, so it needs no calibration."
+        },
+        {
+          "title": "How accurate is it?",
+          "text": "Distances read off a plan are approximate: they depend on how accurately it was drawn, scanned and calibrated. For anything that matters, measure on site and type it on the pin."
+        }
       ]
     },
     {
       "id": "find",
       "title": "Search and legend",
       "items": [
-        { "title": "Searching pins", "text": "Ctrl+F or the magnifier in the header. Search looks through labels, notes, rooms and photo captions on every floor, with filters for floor, category, room, photos and measurements. Pins that do not match fade on the plan. Click a result to go to it." },
-        { "title": "The legend", "text": "Lists the pin categories with their colours and counts. Click a category to hide or show its pins. The arrow at the top folds the legend down to a small tab." }
+        {
+          "title": "Searching pins",
+          "text": "Ctrl+F or the magnifier in the header. Search looks through labels, notes, rooms and photo captions on every floor, with filters for floor, category, room, photos and measurements. Pins that do not match fade on the plan. Click a result to go to it."
+        },
+        {
+          "title": "The legend",
+          "text": "Lists the pin categories with their colours and counts. Click a category to hide or show its pins. The arrow at the top folds the legend down to a small tab."
+        }
       ]
     },
     {
       "id": "draw",
       "title": "Drawing the plan (Draw mode)",
       "items": [
-        { "title": "The tools", "text": "Draw mode shows a tool palette on the left: **Select** (V), **Wall** (W), **Door** (D) and **Window** (N). The bar at the top shows the options of the current tool." },
-        { "title": "Drawing walls", "text": "Choose **Wall** and click corner after corner. Clicks lock onto existing corners and walls, and straighten lines that are nearly horizontal, vertical or at 45°. Hold Ctrl to switch that off. Click the same point twice or press Enter to stop. Backspace takes back the last wall." },
-        { "title": "Exact lengths", "text": "While drawing, type a length (350, 3.5 m, 11' 6\") and press Enter: the wall gets exactly that length, in the direction of the mouse. A plain number is read in the unit shown next to the box. **Thickness** sets the thickness of the next walls." },
-        { "title": "Changing walls", "text": "With **Select**, click a wall (Shift+click adds more). Change its **Length** or **Thickness** in the top bar. To move a corner, click its round handle, then click where it should go: the walls joined there follow." },
-        { "title": "Placing doors and windows", "text": "Choose **Door** or **Window** and pick the **Type**. Click on a wall where the opening starts (for a door, the hinge side), then where it ends, or type the width and press Enter. The door opens towards the side of the wall the mouse is on." },
-        { "title": "Door and window types", "text": "Doors: single, double, pocket (sliding into the wall) and an opening with no door. Windows: window, French window with one or two leaves, and fixed window. They are drawn with the standard plan symbols a builder recognises." },
-        { "title": "Changing a door or window", "text": "With **Select**, click it to change its type, **Width** or distance **From corner**. **Side** (F) makes it open the other way and **Hinge** (H) moves the hinge to the other end. Click it once more to slide it along its wall." },
-        { "title": "Tracing over a plan image", "text": "On an imported plan, Draw mode first asks you to calibrate it, then shows the image faintly so you can trace the walls. The **Plan image** slider sets how faint." },
-        { "title": "The drawing sheet", "text": "A drawn floor starts as a 40 × 30 m sheet with a 1 m grid. Draw past its edge and the sheet grows, always keeping some paper beyond the walls." },
-        { "title": "Back to pins", "text": "Pins stay visible while you draw but cannot be clicked. Switch back to **Document** to work with them." }
+        {
+          "title": "The tools",
+          "text": "Draw mode shows a tool palette on the left: **Select** (V), **Wall** (W), **Door** (D) and **Window** (N). The bar at the top shows the options of the current tool."
+        },
+        {
+          "title": "Drawing walls",
+          "text": "Choose **Wall** and click corner after corner. Clicks lock onto existing corners and walls, and straighten lines that are nearly horizontal, vertical or at 45°. Hold Ctrl to switch that off. Click the same point twice or press Enter to stop. Backspace takes back the last wall."
+        },
+        {
+          "title": "Exact lengths",
+          "text": "While drawing, type a length (350, 3.5 m, 11' 6\") and press Enter: the wall gets exactly that length, in the direction of the mouse. A plain number is read in the unit shown next to the box. **Thickness** sets the thickness of the next walls."
+        },
+        {
+          "title": "Changing walls",
+          "text": "With **Select**, click a wall (Shift+click adds more). Change its **Length** or **Thickness** in the top bar. To move a corner, click its round handle, then click where it should go: the walls joined there follow."
+        },
+        {
+          "title": "Placing doors and windows",
+          "text": "Choose **Door** or **Window** and pick the **Type**. Click on a wall where the opening starts (for a door, the hinge side), then where it ends, or type the width and press Enter. The door opens towards the side of the wall the mouse is on."
+        },
+        {
+          "title": "Door and window types",
+          "text": "Doors: single, double, pocket (sliding into the wall) and an opening with no door. Windows: window, French window with one or two leaves, and fixed window. They are drawn with the standard plan symbols a builder recognises."
+        },
+        {
+          "title": "Changing a door or window",
+          "text": "With **Select**, click it to change its type, **Width** or distance **From corner**. **Side** (F) makes it open the other way and **Hinge** (H) moves the hinge to the other end. Click it once more to slide it along its wall."
+        },
+        {
+          "title": "Tracing over a plan image",
+          "text": "On an imported plan, Draw mode first asks you to calibrate it, then shows the image faintly so you can trace the walls. The **Plan image** slider sets how faint."
+        },
+        {
+          "title": "The drawing sheet",
+          "text": "A drawn floor starts as a 40 × 30 m sheet with a 1 m grid. Draw past its edge and the sheet grows, always keeping some paper beyond the walls."
+        },
+        {
+          "title": "Back to pins",
+          "text": "Pins stay visible while you draw but cannot be clicked. Switch back to **Document** to work with them."
+        }
       ]
     },
     {
       "id": "export",
       "title": "Export, import and print",
       "items": [
-        { "title": "Exporting a project", "text": "**Export ▾ → Project as a .zip file…** saves the whole project (plans, photos, data) as one file. It is a plain zip: it opens on another computer with ReStructura, and anyone can unzip it to get the photos." },
-        { "title": "Importing a project", "text": "On the main menu, **Import project (.zip)…** adds an exported project to your list." },
-        { "title": "Printable report (PDF)", "text": "**Export ▾ → Printable report (PDF)…** builds a report: each floor with its numbered pins, room names and scale bar, then each pin with its notes, measurements and photos. Choose the whole project or one floor, with or without photos. The print window opens next: choose “Save as PDF” to get a file." }
+        {
+          "title": "Exporting a project",
+          "text": "**Export ▾ → Project as a .zip file…** saves the whole project (plans, photos, data) as one file. It is a plain zip: it opens on another computer with ReStructura, and anyone can unzip it to get the photos."
+        },
+        {
+          "title": "Importing a project",
+          "text": "On the main menu, **Import project (.zip)…** adds an exported project to your list."
+        },
+        {
+          "title": "Printable report (PDF)",
+          "text": "**Export ▾ → Printable report (PDF)…** builds a report: each floor with its numbered pins, room names and scale bar, then each pin with its notes, measurements and photos. Choose the whole project or one floor, with or without photos. The print window opens next: choose “Save as PDF” to get a file. If no print window appears, choose **Open in browser** instead and print from there."
+        }
       ]
     },
     {
       "id": "settings",
       "title": "Settings",
       "items": [
-        { "title": "Application settings", "text": "The gear opens **Settings**. Application settings belong to this computer: language, appearance (light, dark or as the system), measurement units, the colour convention for new projects, and where projects are stored." },
-        { "title": "Measurement units", "text": "Centimetres, metres, feet and inches, or inches. This only changes what is shown: lengths are always stored in centimetres, and you can type any unit at any time." },
-        { "title": "Project settings", "text": "With a project open, Settings also shows the project's name, its colour convention and a summary of what it contains. These travel with the project when you export it." }
+        {
+          "title": "Application settings",
+          "text": "The gear opens **Settings**. Application settings belong to this computer: language, appearance (light, dark or as the system), measurement units, the colour convention for new projects, and where projects are stored."
+        },
+        {
+          "title": "Measurement units",
+          "text": "Centimetres, metres, feet and inches, or inches. This only changes what is shown: lengths are always stored in centimetres, and you can type any unit at any time."
+        },
+        {
+          "title": "Project settings",
+          "text": "With a project open, Settings also shows the project's name, its colour convention and a summary of what it contains. These travel with the project when you export it."
+        }
       ]
     },
     {
       "id": "undo",
       "title": "Undo",
       "items": [
-        { "title": "Undo and redo", "text": "Every change is one step. Use the arrows in the header, or Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y). While you are typing in a box, Ctrl+Z first undoes the typing." }
+        {
+          "title": "Undo and redo",
+          "text": "Every change is one step. Use the arrows in the header, or Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y). While you are typing in a box, Ctrl+Z first undoes the typing."
+        }
+      ]
+    },
+    {
+      "id": "problems",
+      "title": "If something goes wrong",
+      "items": [
+        {
+          "title": "The error log",
+          "text": "When something fails, a red message appears and the details are written to a log file on this computer. **Show log file** opens the folder that contains it. Settings shows where it is too."
+        },
+        {
+          "title": "Reporting a problem",
+          "text": "Send the log file with a few words about what you were doing. **How to report**, in the red message or in Settings, shows where the file is and where to send it."
+        },
+        {
+          "title": "A copy before every update",
+          "text": "When a new version of ReStructura changes how projects are stored, it first keeps a copy of each project's database as it was (for example plan.db.v9.bak, in the project folder). The copy is not included in exports."
+        }
       ]
     },
     {
@@ -108,11 +252,37 @@
       "keys": true,
       "note": "On a Mac, use ⌘ where it says Ctrl.",
       "items": [
-        { "title": "Open Help", "keys": ["F1"] },
-        { "title": "Undo", "keys": ["Ctrl+Z"] },
-        { "title": "Redo", "keys": ["Ctrl+Shift+Z", "Ctrl+Y"] },
-        { "title": "Search pins", "keys": ["Ctrl+F"] },
-        { "title": "Cancel, close, or step back one level", "keys": ["Esc"] }
+        {
+          "title": "Open Help",
+          "keys": [
+            "F1"
+          ]
+        },
+        {
+          "title": "Undo",
+          "keys": [
+            "Ctrl+Z"
+          ]
+        },
+        {
+          "title": "Redo",
+          "keys": [
+            "Ctrl+Shift+Z",
+            "Ctrl+Y"
+          ]
+        },
+        {
+          "title": "Search pins",
+          "keys": [
+            "Ctrl+F"
+          ]
+        },
+        {
+          "title": "Cancel, close, or step back one level",
+          "keys": [
+            "Esc"
+          ]
+        }
       ]
     },
     {
@@ -120,12 +290,47 @@
       "title": "Shortcuts: Document mode",
       "keys": true,
       "items": [
-        { "title": "Select every visible pin", "keys": ["Ctrl+A"] },
-        { "title": "Add a pin to the selection, or take it out", "keys": ["Ctrl+click", "Shift+click"] },
-        { "title": "Copy, cut, paste pins", "keys": ["Ctrl+C", "Ctrl+X", "Ctrl+V"] },
-        { "title": "Delete the selected pins or measurement", "keys": ["Delete", "Backspace"] },
-        { "title": "Keep a calibration or measuring line straight", "keys": ["Shift"] },
-        { "title": "Previous or next photo, in the photo viewer", "keys": ["←", "→"] }
+        {
+          "title": "Select every visible pin",
+          "keys": [
+            "Ctrl+A"
+          ]
+        },
+        {
+          "title": "Add a pin to the selection, or take it out",
+          "keys": [
+            "Ctrl+click",
+            "Shift+click"
+          ]
+        },
+        {
+          "title": "Copy, cut, paste pins",
+          "keys": [
+            "Ctrl+C",
+            "Ctrl+X",
+            "Ctrl+V"
+          ]
+        },
+        {
+          "title": "Delete the selected pins or measurement",
+          "keys": [
+            "Delete",
+            "Backspace"
+          ]
+        },
+        {
+          "title": "Keep a calibration or measuring line straight",
+          "keys": [
+            "Shift"
+          ]
+        },
+        {
+          "title": "Previous or next photo, in the photo viewer",
+          "keys": [
+            "←",
+            "→"
+          ]
+        }
       ]
     },
     {
@@ -133,40 +338,162 @@
       "title": "Shortcuts: Draw mode",
       "keys": true,
       "items": [
-        { "title": "Select tool", "keys": ["V"] },
-        { "title": "Wall tool", "keys": ["W"] },
-        { "title": "Door tool", "keys": ["D"] },
-        { "title": "Window tool", "keys": ["N"] },
-        { "title": "Type an exact length or width while drawing", "keys": ["0…9", "Enter"] },
-        { "title": "Stop drawing walls", "keys": ["Enter"] },
-        { "title": "Take back the last wall", "keys": ["Backspace"] },
-        { "title": "Place or move without snapping (hold)", "keys": ["Ctrl"] },
-        { "title": "Door or window: open towards the other side", "keys": ["F"] },
-        { "title": "Door or window: hinge at the other end", "keys": ["H"] },
-        { "title": "Add to the selection", "keys": ["Shift+click"] },
-        { "title": "Select everything", "keys": ["Ctrl+A"] },
-        { "title": "Delete the selection", "keys": ["Delete"] },
-        { "title": "Stop, leave the tool, clear the selection", "keys": ["Esc"] }
+        {
+          "title": "Select tool",
+          "keys": [
+            "V"
+          ]
+        },
+        {
+          "title": "Wall tool",
+          "keys": [
+            "W"
+          ]
+        },
+        {
+          "title": "Door tool",
+          "keys": [
+            "D"
+          ]
+        },
+        {
+          "title": "Window tool",
+          "keys": [
+            "N"
+          ]
+        },
+        {
+          "title": "Type an exact length or width while drawing",
+          "keys": [
+            "0…9",
+            "Enter"
+          ]
+        },
+        {
+          "title": "Stop drawing walls",
+          "keys": [
+            "Enter"
+          ]
+        },
+        {
+          "title": "Take back the last wall",
+          "keys": [
+            "Backspace"
+          ]
+        },
+        {
+          "title": "Place or move without snapping (hold)",
+          "keys": [
+            "Ctrl"
+          ]
+        },
+        {
+          "title": "Door or window: open towards the other side",
+          "keys": [
+            "F"
+          ]
+        },
+        {
+          "title": "Door or window: hinge at the other end",
+          "keys": [
+            "H"
+          ]
+        },
+        {
+          "title": "Add to the selection",
+          "keys": [
+            "Shift+click"
+          ]
+        },
+        {
+          "title": "Select everything",
+          "keys": [
+            "Ctrl+A"
+          ]
+        },
+        {
+          "title": "Delete the selection",
+          "keys": [
+            "Delete"
+          ]
+        },
+        {
+          "title": "Stop, leave the tool, clear the selection",
+          "keys": [
+            "Esc"
+          ]
+        }
       ]
     }
   ],
   "tour": {
-    "menu.projects": { "title": "Your projects", "text": "One project per home. Click a project to open it. Each one can also be exported or deleted from here." },
-    "menu.new": { "title": "New project", "text": "Type a name and press Create. Import brings in a project someone exported for you." },
-    "menu.help": { "title": "Help, any time", "text": "This button, or F1, opens Help: how everything works, with a search box and every keyboard shortcut. You can replay this tour from there." },
-    "menu.settings": { "title": "Settings", "text": "Language, light or dark appearance, and measurement units: centimetres, metres, or feet and inches." },
-    "plan.map": { "title": "The plan", "text": "Scroll to zoom and drag to move around. Right-click anywhere for a menu of what you can do at that spot." },
-    "plan.add": { "title": "Add", "text": "Add a pin where something is inside a wall, a room name, or another floor." },
-    "plan.mode": { "title": "Document or Draw", "text": "Document is for pins, photos and measurements. Draw opens the editor for walls, doors and windows." },
-    "plan.legend": { "title": "Legend", "text": "Pin colours by category. Click a category to hide or show its pins. The arrow folds the legend away." },
-    "plan.scale": { "title": "Scale", "text": "Calibrate an imported plan by measuring one wall: the app can then show real distances and a scale bar." },
-    "plan.search": { "title": "Search", "text": "Find any pin by its label, notes, room or photo captions, on every floor. Shortcut: Ctrl+F." },
-    "plan.export": { "title": "Export", "text": "Save the whole project as one .zip file, or print a report with the plan, the pins and their photos." },
-    "plan.undo": { "title": "Undo", "text": "Every change can be undone and redone, also with Ctrl+Z and Ctrl+Shift+Z." },
-    "plan.help": { "title": "Help", "text": "Everything else is explained here, with a search box. F1 opens it too." },
-    "draw.tools": { "title": "Tools", "text": "Select (V), Wall (W), Door (D) and Window (N). Pick one, then click on the plan." },
-    "draw.bar": { "title": "Options", "text": "The options of the current tool. Type exact lengths, widths and thicknesses here: a plain number is read in the unit shown." },
-    "draw.plan": { "title": "Drawing", "text": "Click corner after corner to draw walls. Clicks lock onto corners and walls; hold Ctrl to switch that off. Esc steps back one level at a time." },
-    "draw.back": { "title": "Back to pins", "text": "Switch to Document to work with pins, photos and room names again." }
+    "menu.projects": {
+      "title": "Your projects",
+      "text": "One project per home. Click a project to open it. Each one can also be exported or deleted from here."
+    },
+    "menu.new": {
+      "title": "New project",
+      "text": "Type a name and press Create. Import brings in a project someone exported for you."
+    },
+    "menu.help": {
+      "title": "Help, any time",
+      "text": "This button, or F1, opens Help: how everything works, with a search box and every keyboard shortcut. You can replay this tour from there."
+    },
+    "menu.settings": {
+      "title": "Settings",
+      "text": "Language, light or dark appearance, and measurement units: centimetres, metres, or feet and inches."
+    },
+    "plan.map": {
+      "title": "The plan",
+      "text": "Scroll to zoom and drag to move around. Right-click anywhere for a menu of what you can do at that spot."
+    },
+    "plan.add": {
+      "title": "Add",
+      "text": "Add a pin where something is inside a wall, a room name, or another floor."
+    },
+    "plan.mode": {
+      "title": "Document or Draw",
+      "text": "Document is for pins, photos and measurements. Draw opens the editor for walls, doors and windows."
+    },
+    "plan.legend": {
+      "title": "Legend",
+      "text": "Pin colours by category. Click a category to hide or show its pins. The arrow folds the legend away."
+    },
+    "plan.scale": {
+      "title": "Scale",
+      "text": "Calibrate an imported plan by measuring one wall: the app can then show real distances and a scale bar."
+    },
+    "plan.search": {
+      "title": "Search",
+      "text": "Find any pin by its label, notes, room or photo captions, on every floor. Shortcut: Ctrl+F."
+    },
+    "plan.export": {
+      "title": "Export",
+      "text": "Save the whole project as one .zip file, or print a report with the plan, the pins and their photos."
+    },
+    "plan.undo": {
+      "title": "Undo",
+      "text": "Every change can be undone and redone, also with Ctrl+Z and Ctrl+Shift+Z."
+    },
+    "plan.help": {
+      "title": "Help",
+      "text": "Everything else is explained here, with a search box. F1 opens it too."
+    },
+    "draw.tools": {
+      "title": "Tools",
+      "text": "Select (V), Wall (W), Door (D) and Window (N). Pick one, then click on the plan."
+    },
+    "draw.bar": {
+      "title": "Options",
+      "text": "The options of the current tool. Type exact lengths, widths and thicknesses here: a plain number is read in the unit shown."
+    },
+    "draw.plan": {
+      "title": "Drawing",
+      "text": "Click corner after corner to draw walls. Clicks lock onto corners and walls; hold Ctrl to switch that off. Esc steps back one level at a time."
+    },
+    "draw.back": {
+      "title": "Back to pins",
+      "text": "Switch to Document to work with pins, photos and room names again."
+    }
   }
 }

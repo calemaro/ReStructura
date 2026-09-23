@@ -6,7 +6,7 @@
 // can be saved and reopened on its own.
 
 import { t, currentLanguage } from "./i18n.js";
-import { colourFor, CATEGORIES } from "./categories.js";
+import { colourFor, CATEGORIES, isLight, inkOn } from "./categories.js";
 import { formatCm } from "./units.js";
 import { planShapes } from "./plan-shapes.js";
 
@@ -34,9 +34,9 @@ function planSvg(level, pins, rooms, walls, openings, scheme, box, overlay) {
     const r = Math.max(9, Math.round(width / 85));
     return `
       <g>
-        <circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${colour}" stroke="#fff" stroke-width="${r * 0.22}"/>
+        <circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${colour}" stroke="${isLight(colour) ? "#4a4f4c" : "#fff"}" stroke-width="${r * 0.22}"/>
         <text x="${p.x}" y="${p.y + r * 0.36}" font-size="${r * 1.05}" font-family="sans-serif"
-              font-weight="700" fill="#fff" text-anchor="middle">${i + 1}</text>
+              font-weight="700" fill="${inkOn(colour)}" text-anchor="middle">${i + 1}</text>
       </g>`;
   }).join("");
   const labels = rooms.map((room) => {
@@ -121,7 +121,7 @@ export function buildHtml({ project, floors, scheme, unit, withPhotos }) {
     const pinBlocks = f.pins.map((p, i) => `
       <article class="pin">
         <header>
-          <span class="num" style="background:${colourFor(scheme, p.category)}">${i + 1}</span>
+          <span class="num" style="background:${colourFor(scheme, p.category)};color:${inkOn(colourFor(scheme, p.category))};border:0.6pt solid ${isLight(colourFor(scheme, p.category)) ? "#4a4f4c" : "transparent"}">${i + 1}</span>
           <h3>${esc(p.label || t("search.noLabel"))}</h3>
         </header>
         <dl class="facts">

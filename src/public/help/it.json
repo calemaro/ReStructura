@@ -4,102 +4,246 @@
       "id": "start",
       "title": "Per iniziare",
       "items": [
-        { "title": "A cosa serve ReStructura", "text": "Registra cosa c'è dentro muri e pavimenti durante una ristrutturazione: tubi, cavi, corrugati. Metti un **punto** sulla planimetria dove si trova qualcosa, poi aggiungi foto, note e misure, così lo ritrovi prima di forare." },
-        { "title": "Tutto resta su questo computer", "text": "Nessun account, nessuna connessione a internet, nessun cloud. Ogni progetto è una cartella su questo computer. Puoi esportarlo come un unico file .zip per farne una copia di sicurezza o per consegnarlo a qualcun altro." },
-        { "title": "Progetti", "text": "L'app si apre sempre sul **menu principale**, con l'elenco dei tuoi progetti: uno per ogni casa o ristrutturazione. Scrivi un nome e premi **Crea** per iniziarne uno nuovo. Ogni progetto dell'elenco ha **Apri**, **Esporta…** ed **Elimina**. Un progetto eliminato finisce nel cestino di sistema, quindi si può recuperare." },
-        { "title": "Il primo piano", "text": "Un progetto nuovo chiede il suo primo piano. **Importa un'immagine della planimetria** (PNG o JPEG: una scansione, una foto del disegno, un file dell'architetto), oppure **Disegna la planimetria nell'editor** su un foglio vuoto." },
-        { "title": "Muoversi sulla planimetria", "text": "Usa la rotella per lo zoom e trascina per spostarti. **Adatta vista** mostra di nuovo tutta la planimetria. Con il tasto destro in un punto qualsiasi si apre un menu con quello che puoi fare lì." },
-        { "title": "Due modalità: Documenta e Disegna", "text": "Il selettore nell'intestazione sceglie la modalità. **Documenta** serve per punti, foto, nomi delle stanze e misure. **Disegna** apre l'editor della planimetria per muri, porte e finestre." }
+        {
+          "title": "A cosa serve ReStructura",
+          "text": "Registra cosa c'è dentro muri e pavimenti durante una ristrutturazione: tubi, cavi, corrugati. Metti un **punto** sulla planimetria dove si trova qualcosa, poi aggiungi foto, note e misure, così lo ritrovi prima di forare."
+        },
+        {
+          "title": "Tutto resta su questo computer",
+          "text": "Nessun account, nessuna connessione a internet, nessun cloud. Ogni progetto è una cartella su questo computer. Puoi esportarlo come un unico file .zip per farne una copia di sicurezza o per consegnarlo a qualcun altro."
+        },
+        {
+          "title": "Progetti",
+          "text": "L'app si apre sempre sul **menu principale**, con l'elenco dei tuoi progetti: uno per ogni casa o ristrutturazione. Scrivi un nome e premi **Crea** per iniziarne uno nuovo. Ogni progetto dell'elenco ha **Apri**, **Esporta…** ed **Elimina**. Un progetto eliminato finisce nel cestino di sistema, quindi si può recuperare."
+        },
+        {
+          "title": "Il primo piano",
+          "text": "Un progetto nuovo chiede il suo primo piano. **Importa un'immagine della planimetria** (PNG o JPEG: una scansione, una foto del disegno, un file dell'architetto), oppure **Disegna la planimetria nell'editor** su un foglio vuoto."
+        },
+        {
+          "title": "Muoversi sulla planimetria",
+          "text": "Usa la rotella per lo zoom e trascina per spostarti. **Adatta vista** mostra di nuovo tutta la planimetria. Con il tasto destro in un punto qualsiasi si apre un menu con quello che puoi fare lì."
+        },
+        {
+          "title": "Due modalità: Documenta e Disegna",
+          "text": "Il selettore nell'intestazione sceglie la modalità. **Documenta** serve per punti, foto, nomi delle stanze e misure. **Disegna** apre l'editor della planimetria per muri, porte e finestre."
+        }
       ]
     },
     {
       "id": "floors",
       "title": "Piani",
       "items": [
-        { "title": "Aggiungere un piano", "text": "**Aggiungi ▾ → Piano (immagine)…** importa un'altra immagine di planimetria. **Aggiungi ▾ → Piano (disegnalo)…** parte da un foglio vuoto. Anche un soppalco o una cantina sono un piano." },
-        { "title": "Cambiare e rinominare i piani", "text": "Con due o più piani, l'elenco **Piano** nell'intestazione passa dall'uno all'altro. La matita accanto rinomina il piano corrente." }
+        {
+          "title": "Aggiungere un piano",
+          "text": "**Aggiungi ▾ → Piano (immagine)…** importa un'altra immagine di planimetria. **Aggiungi ▾ → Piano (disegnalo)…** parte da un foglio vuoto. Anche un soppalco o una cantina sono un piano."
+        },
+        {
+          "title": "Cambiare e rinominare i piani",
+          "text": "Con due o più piani, l'elenco **Piano** nell'intestazione passa dall'uno all'altro. La matita accanto rinomina il piano corrente."
+        }
       ]
     },
     {
       "id": "pins",
       "title": "Punti",
       "items": [
-        { "title": "Aggiungere un punto", "text": "**Aggiungi ▾ → Punto**, poi clicca sulla planimetria. Oppure clicca col tasto destro nel punto e scegli **Aggiungi punto qui**. A destra si apre il pannello del punto." },
-        { "title": "Cosa contiene un punto", "text": "Un'**etichetta** (cosa c'è qui), una **categoria** (elettricità, acqua, gas e così via, che ne decide il colore), la **stanza** in cui si trova, **note** libere, foto e misure. Tutto si salva da solo mentre scrivi: non c'è un pulsante Salva." },
-        { "title": "Foto", "text": "**Allega foto…** copia nel progetto immagini JPEG, PNG o WebP. Clicca una foto per vederla a tutto schermo: le frecce passano da una foto all'altra e ognuna può avere una didascalia. **Rimuovi foto** si può annullare." },
-        { "title": "Misure", "text": "**Altezza dal pavimento**, **Profondità nel muro** e quante **Distanza da…** vuoi, rispetto a un riferimento a cui dai un nome, per esempio “stipite sinistro della porta cucina”. Scrivi la lunghezza in qualsiasi unità: 112, 112 cm, 1,12 m, 44 in, 3' 8\"." },
-        { "title": "Spostare un punto", "text": "I punti non si spostano mai per sbaglio. Premi **Modifica posizione** nel pannello del punto (o clicca il punto col tasto destro), poi clicca dove deve andare: ogni clic lo sposta. **Fatto** o Esc lo bloccano di nuovo." },
-        { "title": "Più punti insieme", "text": "Ctrl+clic o Maiusc+clic aggiungono punti alla selezione, Ctrl+A seleziona tutti i punti visibili. Poi puoi copiarli, tagliarli, incollarli o eliminarli insieme. Incolla mette le copie sotto il puntatore del mouse, mantenendo la loro disposizione. Le foto non vengono copiate." },
-        { "title": "Colori dei punti", "text": "I colori seguono la convenzione scelta nella **legenda**: Europea (predefinita) o APWA (USA). Un punto memorizza cosa è, non un colore, quindi cambiando convenzione si ricolorano tutti i punti." }
+        {
+          "title": "Aggiungere un punto",
+          "text": "**Aggiungi ▾ → Punto**, poi clicca sulla planimetria. Oppure clicca col tasto destro nel punto e scegli **Aggiungi punto qui**. A destra si apre il pannello del punto."
+        },
+        {
+          "title": "Cosa contiene un punto",
+          "text": "Un'**etichetta** (cosa c'è qui), una **categoria** (elettricità, acqua, gas e così via, che ne decide il colore), la **stanza** in cui si trova, **note** libere, foto e misure. Tutto si salva da solo mentre scrivi: non c'è un pulsante Salva."
+        },
+        {
+          "title": "Foto",
+          "text": "**Allega foto…** copia nel progetto immagini JPEG, PNG o WebP. Clicca una foto per vederla a tutto schermo: le frecce passano da una foto all'altra e ognuna può avere una didascalia. **Rimuovi foto** si può annullare. Le foto HEIC (il formato di iPhone) non si possono usare: convertile prima in JPEG. Se ne scegli una, l'app lo dice in rosso."
+        },
+        {
+          "title": "Misure",
+          "text": "**Altezza dal pavimento**, **Profondità nel muro** e quante **Distanza da…** vuoi, rispetto a un riferimento a cui dai un nome, per esempio “stipite sinistro della porta cucina”. Scrivi la lunghezza in qualsiasi unità: 112, 112 cm, 1,12 m, 44 in, 3' 8\"."
+        },
+        {
+          "title": "Spostare un punto",
+          "text": "I punti non si spostano mai per sbaglio. Premi **Modifica posizione** nel pannello del punto (o clicca il punto col tasto destro), poi clicca dove deve andare: ogni clic lo sposta. **Fatto** o Esc lo bloccano di nuovo."
+        },
+        {
+          "title": "Più punti insieme",
+          "text": "Ctrl+clic o Maiusc+clic aggiungono punti alla selezione, Ctrl+A seleziona tutti i punti visibili. Poi puoi copiarli, tagliarli, incollarli o eliminarli insieme. Incolla mette le copie sotto il puntatore del mouse, mantenendo la loro disposizione. Le foto non vengono copiate."
+        },
+        {
+          "title": "Colori dei punti",
+          "text": "I colori seguono la convenzione scelta nella **legenda**: Europea (predefinita) o APWA (USA). Un punto memorizza cosa è, non un colore, quindi cambiando convenzione si ricolorano tutti i punti."
+        }
       ]
     },
     {
       "id": "rooms",
       "title": "Nomi delle stanze",
       "items": [
-        { "title": "Dare un nome alle stanze", "text": "**Aggiungi ▾ → Nome stanza**, poi clicca dentro la stanza. Dagli un nome e, se vuoi, l'altezza del soffitto. I nomi delle stanze compaiono sulla planimetria e nella scheda stampata." },
-        { "title": "Assegnare una stanza a un punto", "text": "Nel pannello del punto, scegli la stanza dall'elenco **Stanza**. La ricerca e la scheda stampata potranno poi usarla." },
-        { "title": "Spostare o eliminare un nome", "text": "Clicca il nome per aprirlo, poi **Sposta nome** (e clicca il nuovo punto) oppure **Elimina nome**. I punti assegnati a una stanza eliminata perdono semplicemente l'assegnazione." }
+        {
+          "title": "Dare un nome alle stanze",
+          "text": "**Aggiungi ▾ → Nome stanza**, poi clicca dentro la stanza. Dagli un nome e, se vuoi, l'altezza del soffitto. I nomi delle stanze compaiono sulla planimetria e nella scheda stampata."
+        },
+        {
+          "title": "Assegnare una stanza a un punto",
+          "text": "Nel pannello del punto, scegli la stanza dall'elenco **Stanza**. La ricerca e la scheda stampata potranno poi usarla."
+        },
+        {
+          "title": "Spostare o eliminare un nome",
+          "text": "Clicca il nome per aprirlo, poi **Sposta nome** (e clicca il nuovo punto) oppure **Elimina nome**. I punti assegnati a una stanza eliminata perdono semplicemente l'assegnazione."
+        }
       ]
     },
     {
       "id": "scale",
       "title": "Scala e misure",
       "items": [
-        { "title": "Calibrare una planimetria", "text": "Un'immagine di planimetria non ha una scala finché non gliela dai. Premi **Calibra** nella barra in basso, clicca le due estremità di qualcosa che hai misurato (basta un muro) e scrivi la sua lunghezza reale. Tieni premuto Maiusc per mantenere la linea orizzontale o verticale. Il pallino nella barra in basso diventa verde." },
-        { "title": "Cosa aggiunge la calibrazione", "text": "Una barra di scala, lo strumento **Misura distanza** (tasto destro sulla planimetria), le misure salvate sulla planimetria e la distanza tra due punti selezionati. Tutto il resto funziona anche senza, e le lunghezze scritte su un punto non dipendono mai dalla calibrazione." },
-        { "title": "Misure salvate sulla planimetria", "text": "Una distanza misurata resta sulla planimetria come linea tratteggiata con la sua lunghezza. Cliccala per selezionarla e premi Canc per rimuoverla. Ricalibrando si aggiornano tutte." },
-        { "title": "I piani disegnati sono già in scala", "text": "Un piano disegnato nell'editor è in scala fin dall'inizio, quindi non va calibrato." },
-        { "title": "Quanto è preciso?", "text": "Le distanze lette su una planimetria sono approssimative: dipendono da quanto è preciso il disegno, la scansione e la calibrazione. Per ciò che conta, misura sul posto e scrivilo sul punto." }
+        {
+          "title": "Calibrare una planimetria",
+          "text": "Un'immagine di planimetria non ha una scala finché non gliela dai. Premi **Calibra** nella barra in basso, clicca le due estremità di qualcosa che hai misurato (basta un muro) e scrivi la sua lunghezza reale. Tieni premuto Maiusc per mantenere la linea orizzontale o verticale. Il pallino nella barra in basso diventa verde."
+        },
+        {
+          "title": "Cosa aggiunge la calibrazione",
+          "text": "Una barra di scala, lo strumento **Misura distanza** (tasto destro sulla planimetria), le misure salvate sulla planimetria e la distanza tra due punti selezionati. Tutto il resto funziona anche senza, e le lunghezze scritte su un punto non dipendono mai dalla calibrazione."
+        },
+        {
+          "title": "Misure salvate sulla planimetria",
+          "text": "Una distanza misurata resta sulla planimetria come linea tratteggiata con la sua lunghezza. Cliccala per selezionarla e premi Canc per rimuoverla. Ricalibrando si aggiornano tutte."
+        },
+        {
+          "title": "I piani disegnati sono già in scala",
+          "text": "Un piano disegnato nell'editor è in scala fin dall'inizio, quindi non va calibrato."
+        },
+        {
+          "title": "Quanto è preciso?",
+          "text": "Le distanze lette su una planimetria sono approssimative: dipendono da quanto è preciso il disegno, la scansione e la calibrazione. Per ciò che conta, misura sul posto e scrivilo sul punto."
+        }
       ]
     },
     {
       "id": "find",
       "title": "Ricerca e legenda",
       "items": [
-        { "title": "Cercare i punti", "text": "Ctrl+F o la lente nell'intestazione. La ricerca guarda etichette, note, stanze e didascalie delle foto su tutti i piani, con filtri per piano, categoria, stanza, foto e misure. I punti che non corrispondono si attenuano sulla planimetria. Clicca un risultato per andarci." },
-        { "title": "La legenda", "text": "Elenca le categorie dei punti con i loro colori e quanti sono. Clicca una categoria per nascondere o mostrare i suoi punti. La freccia in alto ripiega la legenda in una piccola linguetta." }
+        {
+          "title": "Cercare i punti",
+          "text": "Ctrl+F o la lente nell'intestazione. La ricerca guarda etichette, note, stanze e didascalie delle foto su tutti i piani, con filtri per piano, categoria, stanza, foto e misure. I punti che non corrispondono si attenuano sulla planimetria. Clicca un risultato per andarci."
+        },
+        {
+          "title": "La legenda",
+          "text": "Elenca le categorie dei punti con i loro colori e quanti sono. Clicca una categoria per nascondere o mostrare i suoi punti. La freccia in alto ripiega la legenda in una piccola linguetta."
+        }
       ]
     },
     {
       "id": "draw",
       "title": "Disegnare la planimetria (modalità Disegna)",
       "items": [
-        { "title": "Gli strumenti", "text": "La modalità Disegna mostra a sinistra una tavolozza di strumenti: **Seleziona** (V), **Muro** (W), **Porta** (D) e **Finestra** (N). La barra in alto mostra le opzioni dello strumento corrente." },
-        { "title": "Disegnare i muri", "text": "Scegli **Muro** e clicca un angolo dopo l'altro. I clic si agganciano ad angoli e muri esistenti e raddrizzano le linee quasi orizzontali, verticali o a 45°. Tieni premuto Ctrl per disattivarlo. Clicca due volte lo stesso punto o premi Invio per fermarti. Backspace annulla l'ultimo muro." },
-        { "title": "Lunghezze esatte", "text": "Mentre disegni, scrivi una lunghezza (350, 3,5 m, 11' 6\") e premi Invio: il muro avrà esattamente quella lunghezza, nella direzione del mouse. Un numero senza unità è letto nell'unità mostrata accanto al campo. **Spessore** imposta lo spessore dei prossimi muri." },
-        { "title": "Modificare i muri", "text": "Con **Seleziona**, clicca un muro (Maiusc+clic ne aggiunge altri). Cambia la **Lunghezza** o lo **Spessore** nella barra in alto. Per spostare un angolo, clicca la sua maniglia tonda, poi clicca dove deve andare: i muri collegati lo seguono." },
-        { "title": "Inserire porte e finestre", "text": "Scegli **Porta** o **Finestra** e il **Tipo**. Clicca sul muro dove inizia l'apertura (per una porta, dal lato della cerniera), poi dove finisce, oppure scrivi la larghezza e premi Invio. La porta apre verso il lato del muro dove si trova il mouse." },
-        { "title": "Tipi di porte e finestre", "text": "Porte: a un'anta, a due ante, scorrevole a scomparsa e vano senza porta. Finestre: finestra, portafinestra a un'anta o a due ante, finestra fissa. Sono disegnate con i simboli standard delle planimetrie, riconoscibili da un tecnico." },
-        { "title": "Modificare una porta o una finestra", "text": "Con **Seleziona**, cliccala per cambiarne il tipo, la **Larghezza** o la distanza **Dall'angolo**. **Lato** (F) la fa aprire dall'altra parte e **Cerniera** (H) sposta la cerniera all'altra estremità. Cliccala ancora una volta per farla scorrere lungo il muro." },
-        { "title": "Ricalcare un'immagine di planimetria", "text": "Su una planimetria importata, la modalità Disegna chiede prima di calibrarla, poi mostra l'immagine attenuata così puoi ricalcare i muri. Il cursore **Immagine** regola quanto è attenuata." },
-        { "title": "Il foglio di disegno", "text": "Un piano disegnato parte da un foglio di 40 × 30 m con una griglia di 1 m. Se disegni oltre il bordo il foglio si allarga, lasciando sempre un po' di margine oltre i muri." },
-        { "title": "Tornare ai punti", "text": "Mentre disegni i punti restano visibili ma non si possono cliccare. Torna a **Documenta** per lavorarci." }
+        {
+          "title": "Gli strumenti",
+          "text": "La modalità Disegna mostra a sinistra una tavolozza di strumenti: **Seleziona** (V), **Muro** (W), **Porta** (D) e **Finestra** (N). La barra in alto mostra le opzioni dello strumento corrente."
+        },
+        {
+          "title": "Disegnare i muri",
+          "text": "Scegli **Muro** e clicca un angolo dopo l'altro. I clic si agganciano ad angoli e muri esistenti e raddrizzano le linee quasi orizzontali, verticali o a 45°. Tieni premuto Ctrl per disattivarlo. Clicca due volte lo stesso punto o premi Invio per fermarti. Backspace annulla l'ultimo muro."
+        },
+        {
+          "title": "Lunghezze esatte",
+          "text": "Mentre disegni, scrivi una lunghezza (350, 3,5 m, 11' 6\") e premi Invio: il muro avrà esattamente quella lunghezza, nella direzione del mouse. Un numero senza unità è letto nell'unità mostrata accanto al campo. **Spessore** imposta lo spessore dei prossimi muri."
+        },
+        {
+          "title": "Modificare i muri",
+          "text": "Con **Seleziona**, clicca un muro (Maiusc+clic ne aggiunge altri). Cambia la **Lunghezza** o lo **Spessore** nella barra in alto. Per spostare un angolo, clicca la sua maniglia tonda, poi clicca dove deve andare: i muri collegati lo seguono."
+        },
+        {
+          "title": "Inserire porte e finestre",
+          "text": "Scegli **Porta** o **Finestra** e il **Tipo**. Clicca sul muro dove inizia l'apertura (per una porta, dal lato della cerniera), poi dove finisce, oppure scrivi la larghezza e premi Invio. La porta apre verso il lato del muro dove si trova il mouse."
+        },
+        {
+          "title": "Tipi di porte e finestre",
+          "text": "Porte: a un'anta, a due ante, scorrevole a scomparsa e vano senza porta. Finestre: finestra, portafinestra a un'anta o a due ante, finestra fissa. Sono disegnate con i simboli standard delle planimetrie, riconoscibili da un tecnico."
+        },
+        {
+          "title": "Modificare una porta o una finestra",
+          "text": "Con **Seleziona**, cliccala per cambiarne il tipo, la **Larghezza** o la distanza **Dall'angolo**. **Lato** (F) la fa aprire dall'altra parte e **Cerniera** (H) sposta la cerniera all'altra estremità. Cliccala ancora una volta per farla scorrere lungo il muro."
+        },
+        {
+          "title": "Ricalcare un'immagine di planimetria",
+          "text": "Su una planimetria importata, la modalità Disegna chiede prima di calibrarla, poi mostra l'immagine attenuata così puoi ricalcare i muri. Il cursore **Immagine** regola quanto è attenuata."
+        },
+        {
+          "title": "Il foglio di disegno",
+          "text": "Un piano disegnato parte da un foglio di 40 × 30 m con una griglia di 1 m. Se disegni oltre il bordo il foglio si allarga, lasciando sempre un po' di margine oltre i muri."
+        },
+        {
+          "title": "Tornare ai punti",
+          "text": "Mentre disegni i punti restano visibili ma non si possono cliccare. Torna a **Documenta** per lavorarci."
+        }
       ]
     },
     {
       "id": "export",
       "title": "Esportare, importare e stampare",
       "items": [
-        { "title": "Esportare un progetto", "text": "**Esporta ▾ → Progetto come file .zip…** salva tutto il progetto (planimetrie, foto, dati) in un unico file. È un normale zip: si apre su un altro computer con ReStructura, e chiunque può estrarlo per avere le foto." },
-        { "title": "Importare un progetto", "text": "Dal menu principale, **Importa progetto (.zip)…** aggiunge un progetto esportato al tuo elenco." },
-        { "title": "Scheda stampabile (PDF)", "text": "**Esporta ▾ → Scheda stampabile (PDF)…** prepara una scheda: ogni piano con i punti numerati, i nomi delle stanze e la barra di scala, poi ogni punto con note, misure e foto. Scegli tutto il progetto o un solo piano, con o senza foto. Si apre poi la finestra di stampa: scegli “Salva come PDF” per ottenere un file." }
+        {
+          "title": "Esportare un progetto",
+          "text": "**Esporta ▾ → Progetto come file .zip…** salva tutto il progetto (planimetrie, foto, dati) in un unico file. È un normale zip: si apre su un altro computer con ReStructura, e chiunque può estrarlo per avere le foto."
+        },
+        {
+          "title": "Importare un progetto",
+          "text": "Dal menu principale, **Importa progetto (.zip)…** aggiunge un progetto esportato al tuo elenco."
+        },
+        {
+          "title": "Scheda stampabile (PDF)",
+          "text": "**Esporta ▾ → Scheda stampabile (PDF)…** prepara una scheda: ogni piano con i punti numerati, i nomi delle stanze e la barra di scala, poi ogni punto con note, misure e foto. Scegli tutto il progetto o un solo piano, con o senza foto. Si apre poi la finestra di stampa: scegli “Salva come PDF” per ottenere un file. Se la finestra di stampa non compare, scegli **Apri nel browser** e stampa da lì."
+        }
       ]
     },
     {
       "id": "settings",
       "title": "Impostazioni",
       "items": [
-        { "title": "Impostazioni dell'applicazione", "text": "L'ingranaggio apre le **Impostazioni**. Quelle dell'applicazione appartengono a questo computer: lingua, aspetto (chiaro, scuro o come il sistema), unità di misura, la convenzione colori per i nuovi progetti e la cartella dove sono salvati i progetti." },
-        { "title": "Unità di misura", "text": "Centimetri, metri, piedi e pollici, oppure pollici. Cambia solo ciò che vedi: le lunghezze sono sempre salvate in centimetri, e puoi scrivere qualsiasi unità in qualsiasi momento." },
-        { "title": "Impostazioni del progetto", "text": "Con un progetto aperto, le Impostazioni mostrano anche il nome del progetto, la sua convenzione colori e un riepilogo del contenuto. Queste viaggiano con il progetto quando lo esporti." }
+        {
+          "title": "Impostazioni dell'applicazione",
+          "text": "L'ingranaggio apre le **Impostazioni**. Quelle dell'applicazione appartengono a questo computer: lingua, aspetto (chiaro, scuro o come il sistema), unità di misura, la convenzione colori per i nuovi progetti e la cartella dove sono salvati i progetti."
+        },
+        {
+          "title": "Unità di misura",
+          "text": "Centimetri, metri, piedi e pollici, oppure pollici. Cambia solo ciò che vedi: le lunghezze sono sempre salvate in centimetri, e puoi scrivere qualsiasi unità in qualsiasi momento."
+        },
+        {
+          "title": "Impostazioni del progetto",
+          "text": "Con un progetto aperto, le Impostazioni mostrano anche il nome del progetto, la sua convenzione colori e un riepilogo del contenuto. Queste viaggiano con il progetto quando lo esporti."
+        }
       ]
     },
     {
       "id": "undo",
       "title": "Annulla",
       "items": [
-        { "title": "Annullare e ripetere", "text": "Ogni modifica è un passo. Usa le frecce nell'intestazione, oppure Ctrl+Z e Ctrl+Maiusc+Z (o Ctrl+Y). Mentre scrivi in un campo, Ctrl+Z annulla prima quello che stai scrivendo." }
+        {
+          "title": "Annullare e ripetere",
+          "text": "Ogni modifica è un passo. Usa le frecce nell'intestazione, oppure Ctrl+Z e Ctrl+Maiusc+Z (o Ctrl+Y). Mentre scrivi in un campo, Ctrl+Z annulla prima quello che stai scrivendo."
+        }
+      ]
+    },
+    {
+      "id": "problems",
+      "title": "Se qualcosa va storto",
+      "items": [
+        {
+          "title": "Il registro errori",
+          "text": "Quando qualcosa non funziona compare un messaggio rosso e i dettagli vengono scritti in un file di registro su questo computer. **Mostra il file di registro** apre la cartella che lo contiene. Anche le Impostazioni mostrano dove si trova."
+        },
+        {
+          "title": "Segnalare un problema",
+          "text": "Invia il file di registro con due righe su cosa stavi facendo. **Come segnalarlo**, nel messaggio rosso o nelle Impostazioni, mostra dove si trova il file e a chi mandarlo."
+        },
+        {
+          "title": "Una copia prima di ogni aggiornamento",
+          "text": "Quando una nuova versione di ReStructura cambia il modo in cui salva i progetti, prima conserva una copia del database di ogni progetto com'era (per esempio plan.db.v9.bak, nella cartella del progetto). La copia non viene inclusa nelle esportazioni."
+        }
       ]
     },
     {
@@ -108,11 +252,37 @@
       "keys": true,
       "note": "Su un Mac, usa ⌘ dove c'è scritto Ctrl.",
       "items": [
-        { "title": "Apri la guida", "keys": ["F1"] },
-        { "title": "Annulla", "keys": ["Ctrl+Z"] },
-        { "title": "Ripeti", "keys": ["Ctrl+Maiusc+Z", "Ctrl+Y"] },
-        { "title": "Cerca punti", "keys": ["Ctrl+F"] },
-        { "title": "Annulla, chiudi o torna indietro di un livello", "keys": ["Esc"] }
+        {
+          "title": "Apri la guida",
+          "keys": [
+            "F1"
+          ]
+        },
+        {
+          "title": "Annulla",
+          "keys": [
+            "Ctrl+Z"
+          ]
+        },
+        {
+          "title": "Ripeti",
+          "keys": [
+            "Ctrl+Maiusc+Z",
+            "Ctrl+Y"
+          ]
+        },
+        {
+          "title": "Cerca punti",
+          "keys": [
+            "Ctrl+F"
+          ]
+        },
+        {
+          "title": "Annulla, chiudi o torna indietro di un livello",
+          "keys": [
+            "Esc"
+          ]
+        }
       ]
     },
     {
@@ -120,12 +290,47 @@
       "title": "Scorciatoie: modalità Documenta",
       "keys": true,
       "items": [
-        { "title": "Seleziona tutti i punti visibili", "keys": ["Ctrl+A"] },
-        { "title": "Aggiungi o togli un punto dalla selezione", "keys": ["Ctrl+clic", "Maiusc+clic"] },
-        { "title": "Copia, taglia, incolla punti", "keys": ["Ctrl+C", "Ctrl+X", "Ctrl+V"] },
-        { "title": "Elimina i punti o la misura selezionati", "keys": ["Canc", "Backspace"] },
-        { "title": "Mantieni dritta la linea di calibrazione o di misura", "keys": ["Maiusc"] },
-        { "title": "Foto precedente o successiva, nel visualizzatore", "keys": ["←", "→"] }
+        {
+          "title": "Seleziona tutti i punti visibili",
+          "keys": [
+            "Ctrl+A"
+          ]
+        },
+        {
+          "title": "Aggiungi o togli un punto dalla selezione",
+          "keys": [
+            "Ctrl+clic",
+            "Maiusc+clic"
+          ]
+        },
+        {
+          "title": "Copia, taglia, incolla punti",
+          "keys": [
+            "Ctrl+C",
+            "Ctrl+X",
+            "Ctrl+V"
+          ]
+        },
+        {
+          "title": "Elimina i punti o la misura selezionati",
+          "keys": [
+            "Canc",
+            "Backspace"
+          ]
+        },
+        {
+          "title": "Mantieni dritta la linea di calibrazione o di misura",
+          "keys": [
+            "Maiusc"
+          ]
+        },
+        {
+          "title": "Foto precedente o successiva, nel visualizzatore",
+          "keys": [
+            "←",
+            "→"
+          ]
+        }
       ]
     },
     {
@@ -133,40 +338,162 @@
       "title": "Scorciatoie: modalità Disegna",
       "keys": true,
       "items": [
-        { "title": "Strumento Seleziona", "keys": ["V"] },
-        { "title": "Strumento Muro", "keys": ["W"] },
-        { "title": "Strumento Porta", "keys": ["D"] },
-        { "title": "Strumento Finestra", "keys": ["N"] },
-        { "title": "Scrivi una lunghezza o larghezza esatta mentre disegni", "keys": ["0…9", "Invio"] },
-        { "title": "Smetti di disegnare muri", "keys": ["Invio"] },
-        { "title": "Annulla l'ultimo muro", "keys": ["Backspace"] },
-        { "title": "Inserisci o sposta senza aggancio (tieni premuto)", "keys": ["Ctrl"] },
-        { "title": "Porta o finestra: apri dall'altro lato", "keys": ["F"] },
-        { "title": "Porta o finestra: cerniera all'altra estremità", "keys": ["H"] },
-        { "title": "Aggiungi alla selezione", "keys": ["Maiusc+clic"] },
-        { "title": "Seleziona tutto", "keys": ["Ctrl+A"] },
-        { "title": "Elimina la selezione", "keys": ["Canc"] },
-        { "title": "Fermati, lascia lo strumento, togli la selezione", "keys": ["Esc"] }
+        {
+          "title": "Strumento Seleziona",
+          "keys": [
+            "V"
+          ]
+        },
+        {
+          "title": "Strumento Muro",
+          "keys": [
+            "W"
+          ]
+        },
+        {
+          "title": "Strumento Porta",
+          "keys": [
+            "D"
+          ]
+        },
+        {
+          "title": "Strumento Finestra",
+          "keys": [
+            "N"
+          ]
+        },
+        {
+          "title": "Scrivi una lunghezza o larghezza esatta mentre disegni",
+          "keys": [
+            "0…9",
+            "Invio"
+          ]
+        },
+        {
+          "title": "Smetti di disegnare muri",
+          "keys": [
+            "Invio"
+          ]
+        },
+        {
+          "title": "Annulla l'ultimo muro",
+          "keys": [
+            "Backspace"
+          ]
+        },
+        {
+          "title": "Inserisci o sposta senza aggancio (tieni premuto)",
+          "keys": [
+            "Ctrl"
+          ]
+        },
+        {
+          "title": "Porta o finestra: apri dall'altro lato",
+          "keys": [
+            "F"
+          ]
+        },
+        {
+          "title": "Porta o finestra: cerniera all'altra estremità",
+          "keys": [
+            "H"
+          ]
+        },
+        {
+          "title": "Aggiungi alla selezione",
+          "keys": [
+            "Maiusc+clic"
+          ]
+        },
+        {
+          "title": "Seleziona tutto",
+          "keys": [
+            "Ctrl+A"
+          ]
+        },
+        {
+          "title": "Elimina la selezione",
+          "keys": [
+            "Canc"
+          ]
+        },
+        {
+          "title": "Fermati, lascia lo strumento, togli la selezione",
+          "keys": [
+            "Esc"
+          ]
+        }
       ]
     }
   ],
   "tour": {
-    "menu.projects": { "title": "I tuoi progetti", "text": "Un progetto per ogni casa. Clicca un progetto per aprirlo. Da qui puoi anche esportarlo o eliminarlo." },
-    "menu.new": { "title": "Nuovo progetto", "text": "Scrivi un nome e premi Crea. Importa aggiunge un progetto che qualcuno ha esportato per te." },
-    "menu.help": { "title": "La guida, sempre a portata", "text": "Questo pulsante, o F1, apre la guida: come funziona tutto, con una casella di ricerca e tutte le scorciatoie da tastiera. Da lì puoi rivedere questo tour." },
-    "menu.settings": { "title": "Impostazioni", "text": "Lingua, aspetto chiaro o scuro e unità di misura: centimetri, metri, oppure piedi e pollici." },
-    "plan.map": { "title": "La planimetria", "text": "Usa la rotella per lo zoom e trascina per spostarti. Con il tasto destro in un punto qualsiasi si apre un menu con quello che puoi fare lì." },
-    "plan.add": { "title": "Aggiungi", "text": "Aggiungi un punto dove c'è qualcosa dentro un muro, il nome di una stanza o un altro piano." },
-    "plan.mode": { "title": "Documenta o Disegna", "text": "Documenta serve per punti, foto e misure. Disegna apre l'editor per muri, porte e finestre." },
-    "plan.legend": { "title": "Legenda", "text": "I colori dei punti per categoria. Clicca una categoria per nascondere o mostrare i suoi punti. La freccia ripiega la legenda." },
-    "plan.scale": { "title": "Scala", "text": "Calibra una planimetria importata misurando un muro: l'app potrà poi mostrare distanze reali e una barra di scala." },
-    "plan.search": { "title": "Cerca", "text": "Trova qualsiasi punto per etichetta, note, stanza o didascalie delle foto, su tutti i piani. Scorciatoia: Ctrl+F." },
-    "plan.export": { "title": "Esporta", "text": "Salva tutto il progetto in un unico file .zip, oppure stampa una scheda con la planimetria, i punti e le loro foto." },
-    "plan.undo": { "title": "Annulla", "text": "Ogni modifica si può annullare e ripetere, anche con Ctrl+Z e Ctrl+Maiusc+Z." },
-    "plan.help": { "title": "Guida", "text": "Tutto il resto è spiegato qui, con una casella di ricerca. Si apre anche con F1." },
-    "draw.tools": { "title": "Strumenti", "text": "Seleziona (V), Muro (W), Porta (D) e Finestra (N). Scegline uno, poi clicca sulla planimetria." },
-    "draw.bar": { "title": "Opzioni", "text": "Le opzioni dello strumento corrente. Scrivi qui lunghezze, larghezze e spessori esatti: un numero senza unità è letto nell'unità mostrata." },
-    "draw.plan": { "title": "Disegnare", "text": "Clicca un angolo dopo l'altro per disegnare i muri. I clic si agganciano ad angoli e muri; tieni premuto Ctrl per disattivarlo. Esc torna indietro di un livello alla volta." },
-    "draw.back": { "title": "Tornare ai punti", "text": "Passa a Documenta per lavorare di nuovo con punti, foto e nomi delle stanze." }
+    "menu.projects": {
+      "title": "I tuoi progetti",
+      "text": "Un progetto per ogni casa. Clicca un progetto per aprirlo. Da qui puoi anche esportarlo o eliminarlo."
+    },
+    "menu.new": {
+      "title": "Nuovo progetto",
+      "text": "Scrivi un nome e premi Crea. Importa aggiunge un progetto che qualcuno ha esportato per te."
+    },
+    "menu.help": {
+      "title": "La guida, sempre a portata",
+      "text": "Questo pulsante, o F1, apre la guida: come funziona tutto, con una casella di ricerca e tutte le scorciatoie da tastiera. Da lì puoi rivedere questo tour."
+    },
+    "menu.settings": {
+      "title": "Impostazioni",
+      "text": "Lingua, aspetto chiaro o scuro e unità di misura: centimetri, metri, oppure piedi e pollici."
+    },
+    "plan.map": {
+      "title": "La planimetria",
+      "text": "Usa la rotella per lo zoom e trascina per spostarti. Con il tasto destro in un punto qualsiasi si apre un menu con quello che puoi fare lì."
+    },
+    "plan.add": {
+      "title": "Aggiungi",
+      "text": "Aggiungi un punto dove c'è qualcosa dentro un muro, il nome di una stanza o un altro piano."
+    },
+    "plan.mode": {
+      "title": "Documenta o Disegna",
+      "text": "Documenta serve per punti, foto e misure. Disegna apre l'editor per muri, porte e finestre."
+    },
+    "plan.legend": {
+      "title": "Legenda",
+      "text": "I colori dei punti per categoria. Clicca una categoria per nascondere o mostrare i suoi punti. La freccia ripiega la legenda."
+    },
+    "plan.scale": {
+      "title": "Scala",
+      "text": "Calibra una planimetria importata misurando un muro: l'app potrà poi mostrare distanze reali e una barra di scala."
+    },
+    "plan.search": {
+      "title": "Cerca",
+      "text": "Trova qualsiasi punto per etichetta, note, stanza o didascalie delle foto, su tutti i piani. Scorciatoia: Ctrl+F."
+    },
+    "plan.export": {
+      "title": "Esporta",
+      "text": "Salva tutto il progetto in un unico file .zip, oppure stampa una scheda con la planimetria, i punti e le loro foto."
+    },
+    "plan.undo": {
+      "title": "Annulla",
+      "text": "Ogni modifica si può annullare e ripetere, anche con Ctrl+Z e Ctrl+Maiusc+Z."
+    },
+    "plan.help": {
+      "title": "Guida",
+      "text": "Tutto il resto è spiegato qui, con una casella di ricerca. Si apre anche con F1."
+    },
+    "draw.tools": {
+      "title": "Strumenti",
+      "text": "Seleziona (V), Muro (W), Porta (D) e Finestra (N). Scegline uno, poi clicca sulla planimetria."
+    },
+    "draw.bar": {
+      "title": "Opzioni",
+      "text": "Le opzioni dello strumento corrente. Scrivi qui lunghezze, larghezze e spessori esatti: un numero senza unità è letto nell'unità mostrata."
+    },
+    "draw.plan": {
+      "title": "Disegnare",
+      "text": "Clicca un angolo dopo l'altro per disegnare i muri. I clic si agganciano ad angoli e muri; tieni premuto Ctrl per disattivarlo. Esc torna indietro di un livello alla volta."
+    },
+    "draw.back": {
+      "title": "Tornare ai punti",
+      "text": "Passa a Documenta per lavorare di nuovo con punti, foto e nomi delle stanze."
+    }
   }
 }

@@ -42,6 +42,9 @@
     ],
     "shortDescription": "Document what is inside your walls",
     "longDescription": "Pin photos, notes and measurements to a floor plan to document pipes, cables and conduit during a renovation. Fully offline; projects export as plain zip files.",
-    "category": "Utility"
+    "category": "Utility",
+    "macOS": {
+      "signingIdentity": "-"
+    }
   }
 }

@@ -189,6 +189,7 @@
           <dd class="photos">
             <div id="photo-grid" class="photo-grid"></div>
             <p id="photos-none" class="photos-none" data-i18n="photos.none"></p>
+            <p id="photos-warning" class="warn-note" role="alert" hidden></p>
             <button id="btn-attach" type="button" data-i18n="photos.attach"></button>
           </dd>
           <dt data-i18n="meas.title"></dt>
@@ -303,6 +304,10 @@
             <dt data-i18n="settings.storage"></dt>
             <dd class="settings-path"><span id="set-storage" class="mono"></span>
               <button id="set-open-folder" type="button" data-i18n="settings.openFolder"></button></dd>
+            <dt data-i18n="settings.log"></dt>
+            <dd class="settings-path"><span id="set-log" class="mono"></span>
+              <button id="set-log-show" type="button" data-i18n="log.show"></button>
+              <button id="set-log-help" type="button" data-i18n="log.howTo"></button></dd>
           </dl>
 
           </div>
@@ -337,7 +342,24 @@
           <p id="report-progress" class="ask-hint" hidden></p>
           <div class="ask-actions">
             <button type="button" id="report-cancel" data-i18n="dialog.cancel"></button>
+            <button type="button" id="report-browser" data-i18n="report.openBrowser"></button>
             <button type="submit" class="primary" id="report-go" data-i18n="report.build"></button>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- How to report a problem: where the error log is and what to do with it -->
+      <dialog id="log-dialog" class="ask log-dialog">
+        <form method="dialog">
+          <label data-i18n="log.title"></label>
+          <p class="ask-hint" data-i18n="log.what"></p>
+          <p id="log-path" class="log-path mono"></p>
+          <p class="ask-hint" id="log-send"></p>
+          <div class="ask-actions">
+            <button type="button" id="log-copy" data-i18n="log.copy"></button>
+            <button type="button" id="log-reveal" data-i18n="log.show"></button>
+            <button type="button" id="log-issue" data-i18n="log.openIssues"></button>
+            <button type="submit" class="primary" data-i18n="dialog.ok"></button>
           </div>
         </form>
       </dialog>

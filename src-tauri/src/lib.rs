@@ -16,6 +16,7 @@
 //!     (`level_id` here  <->  `{ levelId: 1 }` there).
 
 mod db;
+mod logfile;
 mod photos;
 mod projects;
 
@@ -161,6 +162,43 @@ fn set_colour_scheme(state: State<AppState>, scheme: String) -> R<projects::Proj
 #[tauri::command]
 fn projects_dir(state: State<AppState>) -> String {
     state.projects_dir.display().to_string()
+}
+
+// ---------------------------------------------------------------------------
+// error log and report files
+// ---------------------------------------------------------------------------
+
+/// The frontend records its errors here (failed commands, JavaScript errors).
+#[tauri::command]
+fn log_event(level: String, message: String) {
+    logfile::write(&level, "ui", &message);
+}
+
+/// Where the log file is, to show the user.
+#[tauri::command]
+fn log_path() -> Option<String> {
+    logfile::path().map(|p| p.display().to_string())
+}
+
+/// Save the printable report as an HTML file, to open it in the web browser when
+/// printing from inside the app is not possible. Kept in the app's cache folder.
+#[tauri::command]
+fn save_report(app: tauri::AppHandle, html: String, name: String) -> R<String> {
+    let dir = app.path().app_cache_dir().map_err(s)?.join("reports");
+    std::fs::create_dir_all(&dir).map_err(s)?;
+    let safe: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let path = dir.join(format!("{safe}.html"));
+    std::fs::write(&path, html).map_err(s)?;
+    Ok(path.display().to_string())
 }
 
 // ---------------------------------------------------------------------------
@@ -604,6 +642,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // First of all, so that anything below that fails is written down.
+            if let Ok(dir) = app.path().app_log_dir() {
+                logfile::init(&dir);
+            }
             // Runs once, before the window appears.
             //   Linux   ~/.local/share/com.restructura.app/projects/
             //   macOS   ~/Library/Application Support/com.restructura.app/projects/
@@ -614,10 +656,25 @@ pub fn run() {
             std::fs::create_dir_all(&projects_dir)?;
 
             // One-time: adopt the pre-projects database, or seed a demo on a fresh install.
-            if let Some(p) = projects::migrate_legacy(&app_data, &projects_dir)? {
-                eprintln!("migrated legacy database into project '{}'", p.slug);
-            } else if projects::list(&projects_dir)?.is_empty() {
-                projects::create_demo(&projects_dir)?;
+            let first_run = (|| -> R<()> {
+                if let Some(p) = projects::migrate_legacy(&app_data, &projects_dir)? {
+                    logfile::write(
+                        "INFO",
+                        "app",
+                        &format!("migrated legacy database into '{}'", p.slug),
+                    );
+                } else if projects::list(&projects_dir)?.is_empty() {
+                    projects::create_demo(&projects_dir)?;
+                }
+                Ok(())
+            })();
+            if let Err(e) = first_run {
+                logfile::write(
+                    "ERROR",
+                    "app",
+                    &format!("setting up the projects folder: {e}"),
+                );
+                return Err(e.into());
             }
 
             app.manage(AppState {
@@ -627,6 +684,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            log_event,
+            log_path,
+            save_report,
             list_projects,
             create_project,
             open_project,

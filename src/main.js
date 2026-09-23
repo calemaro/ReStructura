@@ -18,8 +18,11 @@ import * as api from "./api.js";
 import * as history from "./history.js";
 import * as projects from "./projects.js";
 import { t, setLanguage, detectLanguage, currentLanguage, SUPPORTED } from "./i18n.js";
-import { setStatus, showError, askText, showContextMenu } from "./ui.js";
+import { setStatus, showError, askText, showContextMenu, showToast, revealLog, setReportHandler } from "./ui.js";
 import { CATEGORIES, SCHEMES, colourFor, pinIcon } from "./categories.js";
+
+// Where a user sends the error log. One place, so it is easy to change.
+const REPORT_URL = "https://github.com/calemaro/ReStructura/issues";
 import { parseCm as parseCmRaw, formatCm as formatCmRaw, inputCm as inputCmRaw, UNIT_SYSTEMS, scaleSteps, scaleLabel } from "./units.js";
 import * as settings from "./settings.js";
 import { buildHtml as buildReport } from "./report.js";
@@ -106,6 +109,7 @@ function showPin(id, { focus = false, keepSelection = false } = {}) {
   selectedId = id;
   if (!keepSelection) { selection.clear(); }
   selection.add(id);
+  $("#photos-warning").hidden = true;
   labelInput.value = pin.label;
   notesInput.value = pin.notes;
   catSelect.value = pin.category;
@@ -232,11 +236,34 @@ function renderPhotos(list) {
   }
 }
 
+/** Split picked files into ones the app can read and ones it cannot, and say clearly
+ *  (in red) which files were left out and why. HEIC is the usual culprit: it is what
+ *  an iPhone saves by default. Returns the usable paths. */
+const IMAGE_OK = ["jpg", "jpeg", "png", "webp"];
+function usableImages(paths, inlineEl = null) {
+  const ext = (p) => p.split(".").pop().toLowerCase();
+  const name = (p) => p.split(/[\\/]/).pop();
+  const ok = paths.filter((p) => IMAGE_OK.includes(ext(p)));
+  const heic = paths.filter((p) => ["heic", "heif"].includes(ext(p))).map(name);
+  const other = paths.filter((p) => !IMAGE_OK.includes(ext(p)) && !["heic", "heif"].includes(ext(p))).map(name);
+  const lines = [];
+  if (heic.length) lines.push(t("image.heic", { files: heic.join(", ") }));
+  if (other.length) lines.push(t("image.unsupported", { files: other.join(", ") }));
+  if (inlineEl) { inlineEl.hidden = !lines.length; inlineEl.textContent = lines.join(" "); }
+  if (lines.length) {
+    showToast({ kind: "warning", title: t(heic.length ? "image.heicTitle" : "image.unsupportedTitle"), text: lines.join(" ") });
+    setStatus(t("image.skipped", { n: heic.length + other.length }));
+  }
+  return ok;
+}
+
 async function attachPhotosFlow() {
   if (selectedId == null) return;
   const id = selectedId;
   try {
-    const paths = await api.pickImages(t("photos.pick"));
+    const picked = await api.pickImages(t("photos.pick"));
+    if (!picked.length) return;
+    const paths = usableImages(picked, $("#photos-warning"));
     if (!paths.length) return;
     let added = null;                                    // remembered so redo restores the same rows
     await history.run({
@@ -1192,13 +1219,18 @@ async function exportZip() {
   } catch (err) { showError(err); }
 }
 $("#report-cancel").addEventListener("click", () => reportDialog.close());
-reportDialog.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); buildAndPrint(); });
+reportDialog.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); buildAndPrint("print"); });
+$("#report-browser").addEventListener("click", () => buildAndPrint("browser"));
 
-async function buildAndPrint() {
+/** Build the report, then print it from inside the app, or (`browser`) save it as a
+ *  file and open it in the web browser, for systems where printing from the app's
+ *  own window does not work, or for anyone who prefers the browser's print options. */
+async function buildAndPrint(mode = "print") {
   const scopeProject = reportDialog.querySelector('input[name="report-scope"]:checked').value === "project";
   const withPhotos = $("#report-photos").checked;
   const progress = $("#report-progress");
   $("#report-go").disabled = true;
+  $("#report-browser").disabled = true;
   progress.hidden = false;
 
   try {
@@ -1246,12 +1278,19 @@ async function buildAndPrint() {
 
     const html = buildReport({ project, floors, scheme, unit: unit(), withPhotos });
     reportDialog.close();
-    await printHtml(html);
+    if (mode === "browser") {
+      const path = await api.saveReport(html, `${project.slug}-report`);
+      await api.openPath(path);
+      setStatus(t("report.openedBrowser"));
+    } else {
+      await printHtml(html);
+    }
   } catch (err) {
     showError(err);
     reportDialog.close();
   } finally {
     $("#report-go").disabled = false;
+    $("#report-browser").disabled = false;
     progress.hidden = true;
   }
 }
@@ -1331,6 +1370,7 @@ const formatBytes = (n) => {
 async function openSettings() {
   fillSettingsOptions();
   try { $("#set-storage").textContent = await api.projectsDir(); } catch (_) {}
+  try { $("#set-log").textContent = (await api.logPath()) ?? ""; } catch (_) {}
   // The project section exists only when there is a project to describe.
   const hasProject = !!project && $("#plan-bar").hidden === false;
   $("#settings-project-section").hidden = !hasProject;
@@ -1346,6 +1386,29 @@ async function openSettings() {
   settingsEl.hidden = false;
 }
 function closeSettings() { settingsEl.hidden = true; }
+
+// ---- reporting a problem: the error log -------------------------------------------------
+const logDialog = $("#log-dialog");
+async function openLogDialog() {
+  let path = "";
+  try { path = (await api.logPath()) ?? ""; } catch (_) {}
+  $("#log-path").textContent = path;
+  $("#log-send").textContent = t("log.send", { url: REPORT_URL });
+  logDialog.showModal();
+}
+setReportHandler(openLogDialog);
+$("#set-log-show").addEventListener("click", revealLog);
+$("#set-log-help").addEventListener("click", openLogDialog);
+$("#log-reveal").addEventListener("click", revealLog);
+$("#log-issue").addEventListener("click", () => api.openUrl(REPORT_URL).catch(showError));
+$("#log-copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($("#log-path").textContent); setStatus(t("log.copied")); }
+  catch (_) { getSelection().selectAllChildren($("#log-path")); }       // select it, to copy by hand
+});
+
+// Anything that goes wrong without being caught is still reported and logged.
+window.addEventListener("error", (e) => { if (!/ResizeObserver/.test(e.message)) showError(e.error ?? e.message); });
+window.addEventListener("unhandledrejection", (e) => showError(e.reason));
 for (const b of document.querySelectorAll(".btn-settings")) b.addEventListener("click", openSettings);
 $("#settings-close").addEventListener("click", closeSettings);
 
@@ -1814,7 +1877,7 @@ $("#btn-fit").addEventListener("click", fitView);
 async function importPlanFlow() {
   try {
     const src = await api.pickImage(t("toolbar.importPlan"));
-    if (!src) return;
+    if (!src || !usableImages([src]).length) return;
     const suggested = src.split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
     const name = await askText(t("plan.namePrompt"), { placeholder: t("plan.namePlaceholder"), value: suggested });
     if (!name) return;
