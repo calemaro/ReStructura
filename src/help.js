@@ -9,7 +9,7 @@
 //                   tour: { "<step id>": { title, text } } }
 // In `text`, **word** is shown bold (used for the names of buttons and fields).
 
-import { t, currentLanguage } from "./i18n.js";
+import { t, currentLanguage, keyNames } from "./i18n.js";
 
 const $ = (sel) => document.querySelector(sel);
 const screen = $("#help");
@@ -27,6 +27,8 @@ async function load(lang) {
     if (res.ok) data = await res.json();
   } catch (_) { /* no file for this language */ }
   if (!data) data = lang === "en" ? { sections: [], tour: {} } : await load("en");
+  // on a Mac every shortcut and every mention of Ctrl reads ⌘
+  data = JSON.parse(keyNames(JSON.stringify(data)));
   cache.set(lang, data);
   return data;
 }

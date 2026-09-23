@@ -50,10 +50,16 @@ export async function setLanguage(lang) {
 
 export function currentLanguage() { return active; }
 
+/** True on a Mac, where the command key ⌘ does what Ctrl does elsewhere. */
+export const IS_MAC = /Mac/i.test(navigator.platform || navigator.userAgent);
+/** On a Mac, every "Ctrl" a user reads becomes "⌘": the app already accepts ⌘ wherever
+ *  it accepts Ctrl, and on a Mac Ctrl+click would be a right-click. */
+export const keyNames = (s) => (IS_MAC ? String(s).replace(/\bCtrl\b/g, "⌘") : s);
+
 export function t(key, vars) {
   let s = dict[key] ?? fallbackDict[key] ?? key;
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
-  return s;
+  return keyNames(s);
 }
 
 /** Fill every element carrying data-i18n (text) or data-i18n-attr="title:key,placeholder:key" (attributes). */

@@ -200,7 +200,7 @@
         },
         {
           "title": "Printable report (PDF)",
-          "text": "**Export ▾ → Printable report (PDF)…** builds a report: each floor with its numbered pins, room names and scale bar, then each pin with its notes, measurements and photos. Choose the whole project or one floor, with or without photos. The print window opens next: choose “Save as PDF” to get a file. If no print window appears, choose **Open in browser** instead and print from there."
+          "text": "**Export ▾ → Printable report (PDF)…** builds a report: each floor with its numbered pins, room names and scale bar, then each pin with its notes, measurements and photos. Choose the whole project or one floor, with or without photos, then **Open in browser**: the report opens in your web browser, where **Print or save as PDF** at the top prints it or saves it as a PDF file."
         }
       ]
     },
@@ -254,7 +254,6 @@
       "id": "keys-all",
       "title": "Shortcuts: everywhere",
       "keys": true,
-      "note": "On a Mac, use ⌘ where it says Ctrl.",
       "items": [
         {
           "title": "Open Help",

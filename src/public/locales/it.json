@@ -243,9 +243,7 @@
   "report.scopeProject": "Tutto il progetto",
   "report.scopeFloor": "Solo questo piano",
   "report.withPhotos": "Includi le foto",
-  "report.build": "Crea scheda",
   "report.building": "Preparazione… {done} di {total} foto",
-  "report.printHint": "Crea scheda apre la finestra di stampa: scegli “Salva come PDF”. Se la finestra di stampa non compare, usa Apri nel browser e stampa da lì.",
   "report.cover": "Scheda della ristrutturazione",
   "report.generated": "Preparata il {date}",
   "report.contents": "Contenuto",
@@ -391,5 +389,8 @@
   "stair.placed": "Scala inserita ({kind}), {n} gradini",
   "stair.info": "Scala {kind}: {w} × {l}, {n} gradini · F la inverte, U alterna su e giù",
   "chooser.rename": "Rinomina…",
-  "chooser.renamePrompt": "Nuovo nome per questo progetto"
+  "chooser.renamePrompt": "Nuovo nome per questo progetto",
+  "report.browserHint": "La scheda si apre nel browser. Da lì puoi stamparla o scegliere “Salva come PDF” per ottenere un file PDF.",
+  "report.printButton": "Stampa o salva in PDF",
+  "report.printBarHint": "Per ottenere un file PDF, scegli “Salva come PDF” come stampante. Questa barra non viene stampata."
 }

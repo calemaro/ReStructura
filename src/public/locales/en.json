@@ -243,9 +243,7 @@
   "report.scopeProject": "The whole project",
   "report.scopeFloor": "This floor only",
   "report.withPhotos": "Include photos",
-  "report.build": "Create report",
   "report.building": "Preparing… {done} of {total} photos",
-  "report.printHint": "Create report opens the print window: choose “Save as PDF”. If no print window appears, use Open in browser and print from there.",
   "report.cover": "Renovation record",
   "report.generated": "Prepared {date}",
   "report.contents": "Contents",
@@ -391,5 +389,8 @@
   "stair.placed": "{kind} stair placed, {n} steps",
   "stair.info": "{kind} stair: {w} × {l}, {n} steps · F reverses it, U switches between up and down",
   "chooser.rename": "Rename…",
-  "chooser.renamePrompt": "New name for this project"
+  "chooser.renamePrompt": "New name for this project",
+  "report.browserHint": "The report opens in your web browser. From there, print it or choose “Save as PDF” to get a PDF file.",
+  "report.printButton": "Print or save as PDF",
+  "report.printBarHint": "To get a PDF file, choose “Save as PDF” as the printer. This bar is not printed."
 }
