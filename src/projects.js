@@ -5,7 +5,7 @@
 
 import * as api from "./api.js";
 import { t, currentLanguage } from "./i18n.js";
-import { setStatus, showError, formatWhen } from "./ui.js";
+import { setStatus, showError, formatWhen, askText } from "./ui.js";
 import * as settings from "./settings.js";
 
 const LAST_KEY = "restructura.lastProject";
@@ -111,6 +111,17 @@ function renderList() {
     const actions = document.createElement("div"); actions.className = "p-actions";
     const open = document.createElement("button"); open.type = "button"; open.className = "primary"; open.textContent = t("chooser.open");
     open.onclick = async () => { try { await opened(await api.openProject(p.slug)); } catch (err) { showError(err); } };
+    // Renaming changes the name shown everywhere; the project's folder keeps its name.
+    const ren = document.createElement("button"); ren.type = "button"; ren.textContent = t("chooser.rename");
+    ren.onclick = async () => {
+      const name = await askText(t("chooser.renamePrompt"), { value: p.name, placeholder: t("chooser.newPlaceholder") });
+      if (!name || name === p.name) return;
+      try {
+        await api.renameProject(p.slug, name);
+        setStatus(t("settings.renamed", { name }));
+        await refresh();
+      } catch (err) { showError(err); }
+    };
     const exp = document.createElement("button"); exp.type = "button"; exp.textContent = t("chooser.export");
     exp.onclick = async () => {
       try {
@@ -130,7 +141,7 @@ function renderList() {
         await refresh();
       } catch (err) { showError(err); }
     };
-    actions.append(open, exp, del);
+    actions.append(open, ren, exp, del);
     li.append(main, actions);
     list.append(li);
   }
