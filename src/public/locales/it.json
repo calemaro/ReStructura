@@ -389,5 +389,7 @@
   "stair.move": "sposta scala",
   "stair.tooSmall": "Troppo piccola: una scala deve misurare almeno 40 cm per lato",
   "stair.placed": "Scala inserita ({kind}), {n} gradini",
-  "stair.info": "Scala {kind}: {w} × {l}, {n} gradini · F la inverte, U alterna su e giù"
+  "stair.info": "Scala {kind}: {w} × {l}, {n} gradini · F la inverte, U alterna su e giù",
+  "chooser.rename": "Rinomina…",
+  "chooser.renamePrompt": "Nuovo nome per questo progetto"
 }

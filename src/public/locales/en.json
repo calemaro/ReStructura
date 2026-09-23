@@ -389,5 +389,7 @@
   "stair.move": "move stairs",
   "stair.tooSmall": "Too small: a stair needs at least 40 cm each way",
   "stair.placed": "{kind} stair placed, {n} steps",
-  "stair.info": "{kind} stair: {w} × {l}, {n} steps · F reverses it, U switches between up and down"
+  "stair.info": "{kind} stair: {w} × {l}, {n} steps · F reverses it, U switches between up and down",
+  "chooser.rename": "Rename…",
+  "chooser.renamePrompt": "New name for this project"
 }

@@ -14,7 +14,7 @@
         },
         {
           "title": "Projects",
-          "text": "The app always opens on the **main menu**, which lists your projects: one per home or renovation. Type a name and press **Create** to start a new one. Each project in the list has **Open**, **Export…** and **Delete**. A deleted project goes to the system trash, so it can be recovered."
+          "text": "The app always opens on the **main menu**, which lists your projects: one per home or renovation. Type a name and press **Create** to start a new one. Each project in the list has **Open**, **Rename…**, **Export…** and **Delete**. A deleted project goes to the system trash, so it can be recovered."
         },
         {
           "title": "Your first floor",
