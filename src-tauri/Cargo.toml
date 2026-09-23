@@ -1,6 +1,6 @@
 [package]
 name = "restructura"
-version = "1.0.0"
+version = "1.0.1"
 description = "Pin photos, notes and measurements to a floor plan to document what is inside your walls."
 authors = ["calemaro"]
 edition = "2021"

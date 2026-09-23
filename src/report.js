@@ -193,8 +193,15 @@ export function buildHtml({ project, floors, scheme, unit, withPhotos }) {
   .photos img { width: 100%; height: auto; border: 0.5pt solid #d5d9d1; }
   .photos figcaption { font-size: 8.5pt; color: #5a615d; margin-top: 2pt; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  .print-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+               margin: 0 0 16px; background: #f3f4f0; border-bottom: 1px solid #d5d9d1; font-size: 10.5pt; }
+  .print-bar button { font: inherit; font-weight: 600; padding: 6px 14px; border: 0; border-radius: 4px; background: #0b5fa5; color: #fff; cursor: pointer; }
+  .print-bar span { color: #5a615d; }
+  @media print { .print-bar { display: none; } }
 </style>
 </head>
-<body>${cover}${floorPages}</body>
+<body>
+<div class="print-bar"><button type="button" onclick="window.print()">${esc(t("report.printButton"))}</button><span>${esc(t("report.printBarHint"))}</span></div>
+${cover}${floorPages}</body>
 </html>`;
 }

@@ -1205,7 +1205,7 @@ $("#btn-export").addEventListener("click", (e) => {
 function openReportDialog() {
   if (!project) return;
   $("#report-progress").hidden = true;
-  $("#report-go").disabled = false;
+  $("#report-browser").disabled = false;
   reportDialog.showModal();
 }
 
@@ -1219,17 +1219,15 @@ async function exportZip() {
   } catch (err) { showError(err); }
 }
 $("#report-cancel").addEventListener("click", () => reportDialog.close());
-reportDialog.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); buildAndPrint("print"); });
-$("#report-browser").addEventListener("click", () => buildAndPrint("browser"));
+reportDialog.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); buildAndPrint(); });
 
-/** Build the report, then print it from inside the app, or (`browser`) save it as a
- *  file and open it in the web browser, for systems where printing from the app's
- *  own window does not work, or for anyone who prefers the browser's print options. */
-async function buildAndPrint(mode = "print") {
+/** Build the report, save it as a file and open it in the web browser, where it is
+ *  printed or saved as PDF. Printing from the app's own window is not used: it does
+ *  nothing on macOS, and the browser's print dialog is the same everywhere. */
+async function buildAndPrint() {
   const scopeProject = reportDialog.querySelector('input[name="report-scope"]:checked').value === "project";
   const withPhotos = $("#report-photos").checked;
   const progress = $("#report-progress");
-  $("#report-go").disabled = true;
   $("#report-browser").disabled = true;
   progress.hidden = false;
 
@@ -1279,18 +1277,13 @@ async function buildAndPrint(mode = "print") {
 
     const html = buildReport({ project, floors, scheme, unit: unit(), withPhotos });
     reportDialog.close();
-    if (mode === "browser") {
-      const path = await api.saveReport(html, `${project.slug}-report`);
-      await api.openPath(path);
-      setStatus(t("report.openedBrowser"));
-    } else {
-      await printHtml(html);
-    }
+    const path = await api.saveReport(html, `${project.slug}-report`);
+    await api.openPath(path);
+    setStatus(t("report.openedBrowser"));
   } catch (err) {
     showError(err);
     reportDialog.close();
   } finally {
-    $("#report-go").disabled = false;
     $("#report-browser").disabled = false;
     progress.hidden = true;
   }
@@ -1305,33 +1298,6 @@ function drawnBox(walls, pins, rooms, lvl, stairs = []) {
   const pad = 120;
   const x = Math.min(...xs) - pad, y = Math.min(...ys) - pad;
   return { x, y, w: Math.max(...xs) + pad - x, h: Math.max(...ys) + pad - y };
-}
-
-/** Print a self-contained document. The webview blocks window.open, so the report is
- *  loaded into a hidden iframe and printed from there; the page's own @page rules then
- *  drive the layout. Images must finish decoding first or the print comes out blank. */
-function printHtml(html) {
-  return new Promise((resolve, reject) => {
-    const frame = document.createElement("iframe");
-    frame.setAttribute("aria-hidden", "true");
-    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
-    document.body.append(frame);
-
-    const cleanup = () => setTimeout(() => frame.remove(), 1000);
-    frame.onload = async () => {
-      try {
-        const win = frame.contentWindow;
-        const imgs = [...win.document.images];
-        await Promise.all(imgs.map((img) => img.complete ? null :
-          new Promise((r) => { img.onload = img.onerror = r; })));
-        win.focus();
-        win.print();
-        cleanup();
-        resolve();
-      } catch (err) { cleanup(); reject(err); }
-    };
-    frame.srcdoc = html;
-  });
 }
 
 // ---- settings screen --------------------------------------------------------------------

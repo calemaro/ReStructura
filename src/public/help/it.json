@@ -200,7 +200,7 @@
         },
         {
           "title": "Scheda stampabile (PDF)",
-          "text": "**Esporta ▾ → Scheda stampabile (PDF)…** prepara una scheda: ogni piano con i punti numerati, i nomi delle stanze e la barra di scala, poi ogni punto con note, misure e foto. Scegli tutto il progetto o un solo piano, con o senza foto. Si apre poi la finestra di stampa: scegli “Salva come PDF” per ottenere un file. Se la finestra di stampa non compare, scegli **Apri nel browser** e stampa da lì."
+          "text": "**Esporta ▾ → Scheda stampabile (PDF)…** prepara una scheda: ogni piano con i punti numerati, i nomi delle stanze e la barra di scala, poi ogni punto con note, misure e foto. Scegli tutto il progetto o un solo piano, con o senza foto, poi **Apri nel browser**: la scheda si apre nel browser, dove **Stampa o salva in PDF** in alto la stampa o la salva come file PDF."
         }
       ]
     },
@@ -254,7 +254,6 @@
       "id": "keys-all",
       "title": "Scorciatoie: ovunque",
       "keys": true,
-      "note": "Su un Mac, usa ⌘ dove c'è scritto Ctrl.",
       "items": [
         {
           "title": "Apri la guida",
